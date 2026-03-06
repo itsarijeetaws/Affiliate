@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: Affiliate Backend API
+  version: 1.0.0
+servers:
+  - url: http://localhost:4000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /auth/login:
+    post:
+      summary: Admin login
+  /products:
+    get:
+      summary: List products
+    post:
+      summary: Create product
+  /products/{slug}:
+    get:
+      summary: Get product by slug
+  /go/{product_slug}:
+    get:
+      summary: Track click and redirect
+  /automation/generate-article:
+    post:
+      summary: Generate article for automation
+  /automation/update-prices:
+    post:
+      summary: Trigger price update job
+  /automation/add-products:
+    post:
+      summary: Add products by ASIN
+  /automation/publish-post:
+    post:
+      summary: Publish post to WordPress
