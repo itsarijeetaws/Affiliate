@@ -1,6 +1,8 @@
 import path from "path";
+import fs from "fs";
 import { createRequire } from "module";
 import type { Request, Response } from "express";
+import { fileURLToPath } from "url";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { startDailyPriceCron } from "./jobs/daily-price-cron.js";
@@ -12,11 +14,34 @@ const nextFactory = require("next") as (options: { dev: boolean; dir: string }) 
 };
 
 const dev = process.env.NODE_ENV !== "production";
-const nextDir = path.resolve(process.cwd(), "frontend");
+const thisFile = fileURLToPath(import.meta.url);
+const thisDir = path.dirname(thisFile);
+
+function resolveNextDir(): string {
+  const candidates = [
+    path.resolve(process.cwd(), "frontend"),
+    path.resolve(thisDir, "../../frontend"),
+    path.resolve(thisDir, "../frontend")
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "app")) && fs.existsSync(path.join(candidate, "package.json"))) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Unable to locate frontend directory. Tried: ${candidates.join(", ")}`);
+}
+
+const nextDir = resolveNextDir();
 const nextApp = nextFactory({ dev, dir: nextDir });
 const handle = nextApp.getRequestHandler();
 
 async function start() {
+  console.log(`Starting combined server in ${dev ? "development" : "production"} mode`);
+  console.log(`Resolved Next.js dir: ${nextDir}`);
+  console.log(`Process CWD: ${process.cwd()}`);
+
   await nextApp.prepare();
 
   // Pass all non-API routes to Next.js.
