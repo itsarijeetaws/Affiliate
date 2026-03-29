@@ -8,6 +8,7 @@
     "dev": "npm --prefix backend run dev:combined"
   },
   "dependencies": {
+    "@prisma/client": "^7.5.0",
     "express": "^4.21.2",
     "next": "^15.5.12",
     "react": "^19.0.0",
@@ -15,5 +16,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "prisma": "^7.5.0"
   }
 }
