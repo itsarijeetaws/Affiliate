@@ -83,7 +83,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       <header>
         <h1 className="text-3xl font-bold">{product.name}</h1>
-        <p className="mt-1 text-slate-600">Current price: ${Number(product.price).toFixed(2)} | Rating: {product.rating.toFixed(1)}</p>
+        <p className="mt-1 text-slate-600">Current price: ${Number(product.price).toFixed(2)} | Rating: {Number(product.rating).toFixed(1)}</p>
       </header>
 
       <p>{product.description}</p>

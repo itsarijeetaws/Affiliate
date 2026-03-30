@@ -32,8 +32,8 @@ export function ComparisonTable({ items }: { items: Item[] }) {
                   <span>{item.name}</span>
                 </div>
               </td>
-              <td className="p-3">${item.price.toFixed(2)}</td>
-              <td className="p-3">{item.rating.toFixed(1)}</td>
+              <td className="p-3">${Number(item.price).toFixed(2)}</td>
+              <td className="p-3">{Number(item.rating).toFixed(1)}</td>
               <td className="p-3">{item.features.join(", ")}</td>
               <td className="p-3">
                 <a href={`/go/${item.slug}`} className="rounded bg-brand-700 px-3 py-2 text-xs font-semibold text-white">
