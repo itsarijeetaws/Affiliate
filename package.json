@@ -11,13 +11,12 @@
     "express": "^4.21.2",
     "next": "^15.5.12",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "drizzle-kit": "^0.30.0",
+    "prisma": "^6.6.0"
   },
   "engines": {
     "node": ">=20"
   },
-  "devDependencies": {
-    "drizzle-kit": "^0.30.0",
-    "prisma": "^6.6.0"
-  }
+  "devDependencies": {}
 }
