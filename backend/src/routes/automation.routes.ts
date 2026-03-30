@@ -10,6 +10,14 @@ import { generateProductReview, generateRoundupPost } from "../services/gemini.s
 import { runPriceUpdateJob } from "../services/price-update.service.js";
 import { toSlug } from "../utils/slug.js";
 
+const parseJsonArray = (val: unknown): string[] => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try { return JSON.parse(val); } catch { return [val]; }
+  }
+  return [];
+};
+
 export const automationRouter = Router();
 automationRouter.use(requireAutomationApiKey);
 
@@ -109,7 +117,7 @@ automationRouter.post("/generate-post", validateBody(z.object({
       generated = await generateProductReview({
         name: product.name, category: category?.name ?? "General", price: Number(product.price), rating: product.rating,
         features: features.map((f) => `${f.key}: ${f.value}`),
-        pros: product.pros as string[], cons: product.cons as string[], affiliateUrl: product.affiliateUrl
+        pros: parseJsonArray(product.pros), cons: parseJsonArray(product.cons), affiliateUrl: product.affiliateUrl
       });
     }
 
@@ -157,7 +165,7 @@ automationRouter.post("/run-pipeline", validateBody(z.object({
           const generated = await generateProductReview({
             name: product.name, category: category?.name ?? "General", price: Number(product.price), rating: product.rating,
             features: features.map((f) => `${f.key}: ${f.value}`),
-            pros: product.pros as string[], cons: product.cons as string[], affiliateUrl: product.affiliateUrl
+            pros: parseJsonArray(product.pros), cons: parseJsonArray(product.cons), affiliateUrl: product.affiliateUrl
           });
           await db.insert(schema.blogPosts)
             .values({ title: generated.title, slug: generated.slug, content: generated.content, excerpt: generated.seoDescription, seoTitle: generated.seoTitle, seoDescription: generated.seoDescription, categoryId, status: "published" })
