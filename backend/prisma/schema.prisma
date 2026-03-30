@@ -34,10 +34,6 @@ model Product {
   lastUpdated   DateTime         @map("last_updated") @default(now())
   category      Category         @relation(fields: [categoryId], references: [id])
   features      ProductFeature[]
-  links         AffiliateLink[]
-  priceHistory  PriceHistory[]
-  clickTracking ClickTracking[]
-  comparisonItems ComparisonTableItem[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -52,32 +48,6 @@ model ProductFeature {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
-}
-
-model AffiliateLink {
-  id         Int      @id @default(autoincrement())
-  productId  Int
-  source     String   @default("amazon")
-  url        String
-  clicks     Int      @default(0)
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([productId])
-  @@unique([productId])
-}
-
-model PriceHistory {
-  id         Int      @id @default(autoincrement())
-  productId  Int
-  oldPrice   Decimal  @db.Decimal(10, 2)
-  newPrice   Decimal  @db.Decimal(10, 2)
-  fetchedAt  DateTime @default(now())
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-  @@index([fetchedAt])
 }
 
 model BlogPost {
@@ -96,40 +66,21 @@ model BlogPost {
   updatedAt         DateTime  @updatedAt
 }
 
-model ComparisonTable {
-  id          Int                   @id @default(autoincrement())
+model Comparison {
+  id          Int      @id @default(autoincrement())
   title       String
-  slug        String                @unique
-  description String?
-  items       ComparisonTableItem[]
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  slug        String   @unique
+  productIds  Json
+  items       Json
+  createdAt   DateTime @default(now())
 }
 
-model ComparisonTableItem {
-  id                Int             @id @default(autoincrement())
-  comparisonTableId Int             @map("comparison_table_id")
-  productId         Int             @map("product_id")
-  position          Int
-  comparisonTable   ComparisonTable @relation(fields: [comparisonTableId], references: [id], onDelete: Cascade)
-  product           Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([comparisonTableId, productId])
-  @@index([comparisonTableId])
-  @@index([productId])
-}
-
-model ClickTracking {
-  id         Int      @id @default(autoincrement())
-  productId  Int      @map("product_id")
-  timestamp  DateTime @default(now())
-  referrer   String?
-  country    String?
-  userAgent  String?  @map("user_agent")
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-  @@index([timestamp])
+model ClickEvent {
+  id          Int      @id @default(autoincrement())
+  slug        String
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now())
 }
 
 model AutomationLog {

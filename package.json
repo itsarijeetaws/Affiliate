@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "npm --prefix backend install --include=dev && npm --prefix frontend install --include=dev && npm --prefix backend run db:push && npm --prefix frontend run build && npm --prefix backend run build && npm --prefix backend run seed && node scripts/prepare-hostinger-output.mjs",
+    "build": "npm --prefix backend install --include=dev && npm --prefix frontend install --include=dev && npm --prefix backend run prisma:push && npm --prefix frontend run build && npm --prefix backend run build && npm --prefix backend run seed && node scripts/prepare-hostinger-output.mjs",
     "start": "npm --prefix backend run start:combined",
     "dev": "npm --prefix backend run dev:combined"
   },
@@ -17,6 +17,7 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.30.0"
+    "drizzle-kit": "^0.30.0",
+    "prisma": "^6.6.0"
   }
 }
