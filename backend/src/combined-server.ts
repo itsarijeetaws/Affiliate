@@ -63,7 +63,7 @@ async function start() {
     return handle(req, res);
   });
 
-  app.listen(env.port, () => {
+  app.listen(env.port, "0.0.0.0", () => {
     console.log(`Combined app running on port ${env.port}`);
   });
 
