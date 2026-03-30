@@ -1,43 +1,39 @@
-import { prisma } from "./lib/prisma.js";
+import { eq } from "drizzle-orm";
+import { db } from "./lib/db.js";
+import * as schema from "./db/schema.js";
 
 async function main() {
-  const category = await prisma.category.upsert({
-    where: { slug: "electronics" },
-    update: {},
-    create: {
-      name: "Electronics",
-      slug: "electronics",
-      description: "Electronic gadgets and accessories"
-    }
-  });
+  // Upsert seed category
+  await db.insert(schema.categories)
+    .values({ name: "Electronics", slug: "electronics", description: "Electronic gadgets and accessories" })
+    .onDuplicateKeyUpdate({ set: { name: "Electronics" } });
 
-  await prisma.product.upsert({
-    where: { amazonAsin: "B000000001" },
-    update: {},
-    create: {
+  const category = await db.query.categories.findFirst({ where: eq(schema.categories.slug, "electronics") });
+  if (!category) throw new Error("Category not seeded");
+
+  // Upsert seed product
+  await db.insert(schema.products)
+    .values({
       name: "Sample Noise Cancelling Headphones",
       slug: "sample-noise-cancelling-headphones",
       amazonAsin: "B000000001",
-      price: 129.99,
+      price: "129.99",
       rating: 4.4,
-      imageUrl: "https://images-na.ssl-images-amazon.com/images/I/sample.jpg",
+      imageUrl: "https://m.media-amazon.com/images/I/61JMFMJH0AL._SL1500_.jpg",
       categoryId: category.id,
       description: "Sample seeded product for local development.",
       pros: ["Great sound", "Comfortable fit"],
       cons: ["Premium pricing"],
-      affiliateUrl: "https://www.amazon.com/dp/B000000001/?tag=sampletag-20",
+      affiliateUrl: "https://www.amazon.in/dp/B000000001/?tag=adfirststore-21",
       lastUpdated: new Date()
-    }
-  });
+    })
+    .onDuplicateKeyUpdate({ set: { lastUpdated: new Date() } });
 
-  console.log("Seed completed");
+  console.log("✅ Seed complete");
+  process.exit(0);
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((err) => {
+  console.error("Seed failed:", err);
+  process.exit(1);
+});

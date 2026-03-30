@@ -1,24 +1,21 @@
 import { Router } from "express";
-import { prisma } from "../lib/prisma.js";
+import { eq, desc } from "drizzle-orm";
+import { db } from "../lib/db.js";
+import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
 
 export const analyticsRouter = Router();
 
 analyticsRouter.get("/clicks", requireAdminAuth, async (_req, res) => {
-  const data = await prisma.clickTracking.groupBy({
-    by: ["productId"],
-    _count: { productId: true },
-    orderBy: { _count: { productId: "desc" } }
-  });
-
+  // Basic click count grouped by slug
+  const data = await db.select().from(schema.clickEvents).orderBy(desc(schema.clickEvents.createdAt)).limit(100);
   res.json(data);
 });
 
 analyticsRouter.get("/automation-logs", requireAdminAuth, async (_req, res) => {
-  const logs = await prisma.automationLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100
+  const logs = await db.query.automationLogs.findMany({
+    orderBy: [desc(schema.automationLogs.createdAt)],
+    limit: 100
   });
-
   res.json(logs);
 });

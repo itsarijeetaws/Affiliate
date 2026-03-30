@@ -1,82 +1,57 @@
 import { Router } from "express";
-import { z } from "zod";
-import { prisma } from "../lib/prisma.js";
-import { responseCache } from "../middleware/cache.js";
+import { sql, eq } from "drizzle-orm";
+import { db } from "../lib/db.js";
+import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
-import { validateBody } from "../middleware/validate.js";
-import { toSlug } from "../utils/slug.js";
-
-const productInputSchema = z.object({
-  name: z.string().min(3),
-  amazonAsin: z.string().min(8),
-  price: z.number().nonnegative(),
-  rating: z.number().min(0).max(5),
-  imageUrl: z.string().url(),
-  categoryId: z.number().int().positive(),
-  description: z.string().min(20),
-  pros: z.array(z.string()).min(1),
-  cons: z.array(z.string()).min(1),
-  affiliateUrl: z.string().url()
-});
+import { responseCache } from "../middleware/cache.js";
 
 export const productsRouter = Router();
 
 productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   const page = Number(req.query.page ?? 1);
   const limit = Math.min(Number(req.query.limit ?? 12), 50);
+  const offset = (page - 1) * limit;
 
-  // Sequential instead of Promise.all — prevents concurrent Prisma init race
-  // on Phusion Passenger (Hostinger) which causes "timer has gone away" panic
-  const items = await prisma.product.findMany({
-    skip: (page - 1) * limit,
-    take: limit,
-    include: { category: true, features: true },
-    orderBy: { updatedAt: "desc" }
+  const items = await db.query.products.findMany({
+    with: { category: true, features: true },
+    orderBy: (_, { desc }) => [desc(schema.products.updatedAt)],
+    limit,
+    offset
   });
-  const total = await prisma.product.count();
 
-  res.json({ items, pagination: { page, limit, total } });
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(schema.products);
+
+  res.json({ items, pagination: { page, limit, total: Number(count) } });
 });
 
 productsRouter.get("/:slug", responseCache("product", 300), async (req, res) => {
-  const slug = String(req.params.slug);
-  const item = await prisma.product.findUnique({
-    where: { slug },
-    include: { category: true, features: true }
-  });
+  const { slug } = req.params;
+  const [product] = await db.select().from(schema.products).where(sql`\`slug\` = ${slug}`).limit(1);
 
-  if (!item) {
+  if (!product) {
     res.status(404).json({ message: "Product not found" });
     return;
   }
 
-  res.json(item);
+  const features = await db.select().from(schema.productFeatures).where(eq(schema.productFeatures.productId, product.id));
+  const [category] = product.categoryId
+    ? await db.select().from(schema.categories).where(eq(schema.categories.id, product.categoryId)).limit(1)
+    : [null];
+
+  res.json({ ...product, features, category });
 });
 
-productsRouter.post("/", requireAdminAuth, validateBody(productInputSchema), async (req, res) => {
-  const data = req.body;
-
-  const created = await prisma.product.create({
-    data: {
-      ...data,
-      slug: toSlug(data.name),
-      lastUpdated: new Date()
-    }
-  });
-
-  res.status(201).json(created);
-});
-
-productsRouter.put("/:id", requireAdminAuth, validateBody(productInputSchema.partial()), async (req, res) => {
+productsRouter.put("/:id", requireAdminAuth, async (req, res) => {
   const id = Number(req.params.id);
+  await db.update(schema.products)
+    .set({ ...(req.body as Partial<typeof schema.products.$inferInsert>), updatedAt: new Date() })
+    .where(eq(schema.products.id, id));
 
-  const updated = await prisma.product.update({
-    where: { id },
-    data: {
-      ...req.body,
-      lastUpdated: new Date()
-    }
-  });
-
+  const [updated] = await db.select().from(schema.products).where(eq(schema.products.id, id)).limit(1);
   res.json(updated);
+});
+
+productsRouter.delete("/:id", requireAdminAuth, async (req, res) => {
+  await db.delete(schema.products).where(eq(schema.products.id, Number(req.params.id)));
+  res.status(204).send();
 });

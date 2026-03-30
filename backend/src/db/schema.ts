@@ -1,0 +1,107 @@
+import { mysqlTable, int, varchar, text, float, json, timestamp } from "drizzle-orm/mysql-core";
+import { decimal } from "drizzle-orm/mysql-core";
+import { relations } from "drizzle-orm";
+
+// ─── Tables ───────────────────────────────────────────────────────────────────
+
+export const categories = mysqlTable("Category", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  description: text("description"),
+});
+
+export const products = mysqlTable("Product", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 500 }).notNull(),
+  slug: varchar("slug", { length: 500 }).notNull().unique(),
+  amazonAsin: varchar("amazonAsin", { length: 20 }).notNull().unique(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
+  rating: float("rating").notNull().default(4.0),
+  imageUrl: text("imageUrl").notNull(),
+  categoryId: int("categoryId").notNull(),
+  description: text("description").notNull(),
+  pros: json("pros").notNull(),
+  cons: json("cons").notNull(),
+  affiliateUrl: text("affiliateUrl").notNull(),
+  lastUpdated: timestamp("lastUpdated").notNull().defaultNow(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow().onUpdateNow(),
+});
+
+export const productFeatures = mysqlTable("ProductFeature", {
+  id: int("id").primaryKey().autoincrement(),
+  productId: int("productId").notNull(),
+  key: varchar("key", { length: 255 }).notNull(),
+  value: text("value").notNull(),
+});
+
+export const blogPosts = mysqlTable("BlogPost", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 500 }).notNull(),
+  slug: varchar("slug", { length: 500 }).notNull().unique(),
+  content: text("content").notNull(),
+  excerpt: text("excerpt"),
+  seoTitle: varchar("seoTitle", { length: 500 }),
+  seoDescription: text("seoDescription"),
+  categoryId: int("categoryId"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  wordpressPostId: int("wordpressPostId"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow().onUpdateNow(),
+});
+
+export const comparisons = mysqlTable("Comparison", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 500 }).notNull(),
+  slug: varchar("slug", { length: 500 }).notNull().unique(),
+  productIds: json("productIds").notNull(),
+  items: json("items").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const automationLogs = mysqlTable("AutomationLog", {
+  id: int("id").primaryKey().autoincrement(),
+  event: varchar("event", { length: 255 }).notNull(),
+  status: varchar("status", { length: 50 }).notNull(),
+  payload: json("payload").notNull(),
+  message: text("message"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const clickEvents = mysqlTable("ClickEvent", {
+  id: int("id").primaryKey().autoincrement(),
+  slug: varchar("slug", { length: 500 }).notNull(),
+  ip: varchar("ip", { length: 100 }),
+  userAgent: text("userAgent"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+// ─── Relations ────────────────────────────────────────────────────────────────
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  products: many(products),
+  blogPosts: many(blogPosts),
+}));
+
+export const productsRelations = relations(products, ({ one, many }) => ({
+  category: one(categories, {
+    fields: [products.categoryId],
+    references: [categories.id],
+  }),
+  features: many(productFeatures),
+}));
+
+export const productFeaturesRelations = relations(productFeatures, ({ one }) => ({
+  product: one(products, {
+    fields: [productFeatures.productId],
+    references: [products.id],
+  }),
+}));
+
+export const blogPostsRelations = relations(blogPosts, ({ one }) => ({
+  category: one(categories, {
+    fields: [blogPosts.categoryId],
+    references: [categories.id],
+  }),
+}));

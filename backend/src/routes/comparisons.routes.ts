@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
-import { prisma } from "../lib/prisma.js";
+import { eq } from "drizzle-orm";
+import { db } from "../lib/db.js";
+import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { toSlug } from "../utils/slug.js";
 
-const schema = z.object({
+const comparisonSchema = z.object({
   title: z.string().min(4),
   description: z.string().optional(),
   productIds: z.array(z.number().int().positive()).min(2).max(10)
@@ -14,14 +16,8 @@ const schema = z.object({
 export const comparisonsRouter = Router();
 
 comparisonsRouter.get("/:slug", async (req, res) => {
-  const comparison = await prisma.comparisonTable.findUnique({
-    where: { slug: req.params.slug },
-    include: {
-      items: {
-        orderBy: { position: "asc" },
-        include: { product: true }
-      }
-    }
+  const comparison = await db.query.comparisons.findFirst({
+    where: eq(schema.comparisons.slug, req.params.slug)
   });
 
   if (!comparison) {
@@ -29,29 +25,32 @@ comparisonsRouter.get("/:slug", async (req, res) => {
     return;
   }
 
-  res.json(comparison);
+  // Fetch associated products
+  const productIds = (comparison.productIds as number[]);
+  const products = productIds.length
+    ? await db.query.products.findMany()
+    : [];
+  const filteredProducts = products.filter((p) => productIds.includes(p.id));
+
+  res.json({ ...comparison, products: filteredProducts });
 });
 
-comparisonsRouter.post("/", requireAdminAuth, validateBody(schema), async (req, res) => {
-  const slug = toSlug(req.body.title);
-  const created = await prisma.comparisonTable.create({
-    data: {
-      title: req.body.title,
-      slug,
-      description: req.body.description,
-      items: {
-        create: req.body.productIds.map((productId: number, index: number) => ({
-          productId,
-          position: index + 1
-        }))
-      }
-    },
-    include: {
-      items: {
-        include: { product: true }
-      }
-    }
+comparisonsRouter.post("/", requireAdminAuth, validateBody(comparisonSchema), async (req, res) => {
+  const { title, productIds } = req.body as z.infer<typeof comparisonSchema>;
+  const slug = toSlug(title);
+
+  const productList = await db.query.products.findMany();
+  const items = productList
+    .filter((p) => (productIds as number[]).includes(p.id))
+    .map((p, i) => ({ position: i + 1, productId: p.id, name: p.name, price: Number(p.price), rating: p.rating, affiliateUrl: p.affiliateUrl }));
+
+  await db.insert(schema.comparisons).values({
+    title,
+    slug,
+    productIds,
+    items
   });
 
+  const created = await db.query.comparisons.findFirst({ where: eq(schema.comparisons.slug, slug) });
   res.status(201).json(created);
 });

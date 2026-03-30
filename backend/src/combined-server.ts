@@ -6,7 +6,6 @@ import { fileURLToPath } from "url";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { startDailyPriceCron } from "./jobs/daily-price-cron.js";
-import { prisma } from "./lib/prisma.js";
 
 const require = createRequire(import.meta.url);
 const nextFactory = require("next") as (options: { dev: boolean; dir: string }) => {
