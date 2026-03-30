@@ -8,7 +8,7 @@ async function main() {
     .values({ name: "Electronics", slug: "electronics", description: "Electronic gadgets and accessories" })
     .onDuplicateKeyUpdate({ set: { name: "Electronics" } });
 
-  const category = await db.query.categories.findFirst({ where: eq(schema.categories.slug, "electronics") });
+  const [category] = await db.select().from(schema.categories).where(eq(schema.categories.slug, "electronics")).limit(1);
   if (!category) throw new Error("Category not seeded");
 
   // Upsert seed product

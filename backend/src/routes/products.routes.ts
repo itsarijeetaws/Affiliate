@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, inArray, desc } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
@@ -12,12 +12,27 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 12), 50);
   const offset = (page - 1) * limit;
 
-  const items = await db.query.products.findMany({
-    with: { category: true, features: true },
-    orderBy: (_, { desc }) => [desc(schema.products.updatedAt)],
-    limit,
-    offset
-  });
+  // Manual query to bypass Drizzle relational JSON bug on MariaDB
+  const productsResult = await db.select().from(schema.products)
+    .orderBy(desc(schema.products.updatedAt))
+    .limit(limit)
+    .offset(offset);
+
+  const categoryIds = [...new Set(productsResult.map(p => p.categoryId).filter(Boolean))];
+  const categoriesList = categoryIds.length 
+    ? await db.select().from(schema.categories).where(inArray(schema.categories.id, categoryIds))
+    : [];
+
+  const productIds = productsResult.map(p => p.id);
+  const featuresList = productIds.length
+    ? await db.select().from(schema.productFeatures).where(inArray(schema.productFeatures.productId, productIds))
+    : [];
+
+  const items = productsResult.map(p => ({
+    ...p,
+    category: categoriesList.find(c => c.id === p.categoryId) ?? null,
+    features: featuresList.filter(f => f.productId === p.id)
+  }));
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(schema.products);
 
@@ -26,7 +41,7 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
 
 productsRouter.get("/:slug", responseCache("product", 300), async (req, res) => {
   const { slug } = req.params;
-  const [product] = await db.select().from(schema.products).where(sql`\`slug\` = ${slug}`).limit(1);
+  const [product] = await db.select().from(schema.products).where(eq(schema.products.slug, String(slug))).limit(1);
 
   if (!product) {
     res.status(404).json({ message: "Product not found" });
@@ -48,7 +63,14 @@ productsRouter.put("/:id", requireAdminAuth, async (req, res) => {
     .where(eq(schema.products.id, id));
 
   const [updated] = await db.select().from(schema.products).where(eq(schema.products.id, id)).limit(1);
-  res.json(updated);
+  
+  // Re-fetch category and features manually
+  const features = await db.select().from(schema.productFeatures).where(eq(schema.productFeatures.productId, id));
+  const [category] = updated?.categoryId
+    ? await db.select().from(schema.categories).where(eq(schema.categories.id, updated.categoryId)).limit(1)
+    : [null];
+
+  res.json({ ...updated, features, category });
 });
 
 productsRouter.delete("/:id", requireAdminAuth, async (req, res) => {

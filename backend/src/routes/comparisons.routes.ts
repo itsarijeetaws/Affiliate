@@ -16,9 +16,7 @@ const comparisonSchema = z.object({
 export const comparisonsRouter = Router();
 
 comparisonsRouter.get("/:slug", async (req, res) => {
-  const comparison = await db.query.comparisons.findFirst({
-    where: eq(schema.comparisons.slug, req.params.slug)
-  });
+  const [comparison] = await db.select().from(schema.comparisons).where(eq(schema.comparisons.slug, req.params.slug)).limit(1);
 
   if (!comparison) {
     res.status(404).json({ message: "Comparison not found" });
@@ -26,9 +24,9 @@ comparisonsRouter.get("/:slug", async (req, res) => {
   }
 
   // Fetch associated products
-  const productIds = (comparison.productIds as number[]);
-  const products = productIds.length
-    ? await db.query.products.findMany()
+  const productIds = comparison.productIds as number[];
+  const products = productIds.length > 0
+    ? await db.select().from(schema.products) // Could optimize with inArray, but copying original logic
     : [];
   const filteredProducts = products.filter((p) => productIds.includes(p.id));
 
@@ -39,9 +37,9 @@ comparisonsRouter.post("/", requireAdminAuth, validateBody(comparisonSchema), as
   const { title, productIds } = req.body as z.infer<typeof comparisonSchema>;
   const slug = toSlug(title);
 
-  const productList = await db.query.products.findMany();
+  const productList = await db.select().from(schema.products);
   const items = productList
-    .filter((p) => (productIds as number[]).includes(p.id))
+    .filter((p) => productIds.includes(p.id))
     .map((p, i) => ({ position: i + 1, productId: p.id, name: p.name, price: Number(p.price), rating: p.rating, affiliateUrl: p.affiliateUrl }));
 
   await db.insert(schema.comparisons).values({
@@ -51,6 +49,6 @@ comparisonsRouter.post("/", requireAdminAuth, validateBody(comparisonSchema), as
     items
   });
 
-  const created = await db.query.comparisons.findFirst({ where: eq(schema.comparisons.slug, slug) });
+  const [created] = await db.select().from(schema.comparisons).where(eq(schema.comparisons.slug, slug)).limit(1);
   res.status(201).json(created);
 });

@@ -13,9 +13,6 @@ analyticsRouter.get("/clicks", requireAdminAuth, async (_req, res) => {
 });
 
 analyticsRouter.get("/automation-logs", requireAdminAuth, async (_req, res) => {
-  const logs = await db.query.automationLogs.findMany({
-    orderBy: [desc(schema.automationLogs.createdAt)],
-    limit: 100
-  });
+  const logs = await db.select().from(schema.automationLogs).orderBy(desc(schema.automationLogs.createdAt)).limit(100);
   res.json(logs);
 });
