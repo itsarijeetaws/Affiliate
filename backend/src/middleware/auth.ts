@@ -27,7 +27,7 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
 }
 
 export function requireAutomationApiKey(req: Request, res: Response, next: NextFunction): void {
-  const key = req.header("x-automation-key");
+  const key = req.header("x-automation-api-key") ?? req.header("x-automation-key");
 
   if (!key || key !== env.automationApiKey) {
     res.status(401).json({ message: "Invalid automation API key" });
