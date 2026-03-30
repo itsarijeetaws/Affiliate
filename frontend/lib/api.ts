@@ -1,5 +1,6 @@
 const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-const INTERNAL_API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const port = process.env.PORT || "4000";
+const INTERNAL_API_URL = `http://127.0.0.1:${port}`;
 
 const API_URL = PUBLIC_API_URL;
 
