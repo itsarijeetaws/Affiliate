@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { startDailyPriceCron } from "./jobs/daily-price-cron.js";
+import { prisma } from "./lib/prisma.js";
 
 const require = createRequire(import.meta.url);
 const nextFactory = require("next") as (options: { dev: boolean; dir: string }) => {
@@ -41,6 +42,15 @@ async function start() {
   console.log(`Starting combined server in ${dev ? "development" : "production"} mode`);
   console.log(`Resolved Next.js dir: ${nextDir}`);
   console.log(`Process CWD: ${process.cwd()}`);
+
+  // Warm up Prisma connection before accepting traffic to prevent the
+  // "timer has gone away" Rust panic caused by concurrent cold-start requests
+  try {
+    await prisma.$connect();
+    console.log("Database connection established");
+  } catch (err) {
+    console.warn("Database warm-up failed (will retry on first request):", err);
+  }
 
   await nextApp.prepare();
 
