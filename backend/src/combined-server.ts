@@ -43,15 +43,6 @@ async function start() {
   console.log(`Resolved Next.js dir: ${nextDir}`);
   console.log(`Process CWD: ${process.cwd()}`);
 
-  // Warm up Prisma connection before accepting traffic to prevent the
-  // "timer has gone away" Rust panic caused by concurrent cold-start requests
-  try {
-    await prisma.$connect();
-    console.log("Database connection established");
-  } catch (err) {
-    console.warn("Database warm-up failed (will retry on first request):", err);
-  }
-
   await nextApp.prepare();
 
   // Pass all non-API routes to Next.js.
