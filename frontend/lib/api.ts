@@ -1,6 +1,5 @@
-const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-const port = process.env.PORT || "4000";
-const INTERNAL_API_URL = `http://127.0.0.1:${port}`;
+const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://whitesmoke-lapwing-348992.hostingersite.com";
+const INTERNAL_API_URL = process.env.INTERNAL_API_URL || PUBLIC_API_URL;
 
 const API_URL = PUBLIC_API_URL;
 
