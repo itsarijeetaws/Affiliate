@@ -23,14 +23,29 @@ blogRouter.get("/", async (req, res) => {
 
   const [items, total] = await Promise.all([
     prisma.blogPost.findMany({
+      where: { status: "published" },
       skip: (page - 1) * limit,
       take: limit,
+      select: { id: true, title: true, slug: true, excerpt: true, createdAt: true },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.blogPost.count()
+    prisma.blogPost.count({ where: { status: "published" } })
   ]);
 
   res.json({ items, pagination: { page, limit, total } });
+});
+
+blogRouter.get("/:slug", async (req, res) => {
+  const post = await prisma.blogPost.findUnique({
+    where: { slug: req.params.slug }
+  });
+
+  if (!post || post.status !== "published") {
+    res.status(404).json({ message: "Post not found" });
+    return;
+  }
+
+  res.json(post);
 });
 
 blogRouter.post("/", requireAdminAuth, validateBody(schema), async (req, res) => {

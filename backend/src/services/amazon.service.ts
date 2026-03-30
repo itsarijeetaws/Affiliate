@@ -10,77 +10,180 @@ export type AmazonProduct = {
   imageUrl: string;
   features: string[];
   affiliateUrl: string;
+  availability: string;
 };
 
-function cacheKey(key: string): string {
-  return `amazon:${key}`;
+// ─── PA API v5 — AWS Signature V4 ─────────────────────────────────────────────
+
+const PA_API_HOST = "webservices.amazon.in";
+const PA_API_PATH = "/paapi5/getitems";
+const PA_API_REGION = "us-east-1"; // PA API India uses us-east-1 endpoint
+
+function sign(key: Buffer, msg: string): Buffer {
+  return crypto.createHmac("sha256", key).update(msg).digest();
 }
 
-// Placeholder signature builder. Replace endpoint + canonical request with PA API spec before production.
-function buildSignature(payload: string): string {
-  return crypto
-    .createHmac("sha256", env.amazonSecretKey || "")
-    .update(payload)
-    .digest("hex");
+function getSignatureKey(secretKey: string, dateStamp: string, region: string, service: string): Buffer {
+  const kDate = sign(Buffer.from(`AWS4${secretKey}`), dateStamp);
+  const kRegion = sign(kDate, region);
+  const kService = sign(kRegion, service);
+  return sign(kService, "aws4_request");
 }
 
-export async function fetchProductByASIN(asin: string): Promise<AmazonProduct | null> {
-  const key = cacheKey(`asin:${asin}`);
-  const cached = await cacheClient.get(key);
-  if (cached) {
-    return JSON.parse(cached) as AmazonProduct;
-  }
-
+async function paApiRequest(itemIds: string[]): Promise<AmazonProduct[]> {
   if (!env.amazonAccessKey || !env.amazonSecretKey || !env.amazonPartnerTag) {
-    return null;
+    return [];
   }
 
-  const mock: AmazonProduct = {
-    asin,
-    title: `Sample Product ${asin}`,
-    price: 99.99,
-    rating: 4.4,
-    imageUrl: "https://images-na.ssl-images-amazon.com/images/I/sample.jpg",
-    features: ["Feature 1", "Feature 2"],
-    affiliateUrl: `https://www.amazon.com/dp/${asin}/?tag=${env.amazonPartnerTag}`
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "").substring(0, 15) + "Z";
+  const dateStamp = amzDate.substring(0, 8);
+
+  const payload = JSON.stringify({
+    ItemIds: itemIds,
+    PartnerTag: env.amazonPartnerTag,
+    PartnerType: "Associates",
+    Marketplace: "www.amazon.in",
+    Resources: [
+      "Images.Primary.Large",
+      "ItemInfo.Title",
+      "ItemInfo.Features",
+      "Offers.Listings.Price",
+      "Offers.Listings.Availability.Message",
+      "CustomerReviews.StarRating"
+    ]
+  });
+
+  const payloadHash = crypto.createHash("sha256").update(payload).digest("hex");
+  const canonicalHeaders =
+    `content-encoding:amz-1.0\n` +
+    `content-type:application/json; charset=utf-8\n` +
+    `host:${PA_API_HOST}\n` +
+    `x-amz-date:${amzDate}\n` +
+    `x-amz-target:com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems\n`;
+  const signedHeaders = "content-encoding;content-type;host;x-amz-date;x-amz-target";
+  const canonicalRequest = [
+    "POST",
+    PA_API_PATH,
+    "",
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash
+  ].join("\n");
+
+  const credentialScope = `${dateStamp}/${PA_API_REGION}/ProductAdvertisingAPI/aws4_request`;
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    crypto.createHash("sha256").update(canonicalRequest).digest("hex")
+  ].join("\n");
+
+  const signingKey = getSignatureKey(env.amazonSecretKey, dateStamp, PA_API_REGION, "ProductAdvertisingAPI");
+  const signature = crypto.createHmac("sha256", signingKey).update(stringToSign).digest("hex");
+
+  const authHeader =
+    `AWS4-HMAC-SHA256 Credential=${env.amazonAccessKey}/${credentialScope}, ` +
+    `SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const response = await fetch(`https://${PA_API_HOST}${PA_API_PATH}`, {
+    method: "POST",
+    headers: {
+      "content-encoding": "amz-1.0",
+      "content-type": "application/json; charset=utf-8",
+      host: PA_API_HOST,
+      "x-amz-date": amzDate,
+      "x-amz-target": "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
+      Authorization: authHeader
+    },
+    body: payload
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`PA API error ${response.status}: ${text}`);
+  }
+
+  const data = (await response.json()) as {
+    ItemsResult?: {
+      Items: Array<{
+        ASIN: string;
+        ItemInfo?: { Title?: { DisplayValue: string }; Features?: { DisplayValues: string[] } };
+        Images?: { Primary?: { Large?: { URL: string } } };
+        Offers?: { Listings?: Array<{ Price?: { Amount: number }; Availability?: { Message: string } }> };
+        CustomerReviews?: { StarRating?: { Value: number } };
+        DetailPageURL: string;
+      }>;
+    };
   };
 
-  const payload = JSON.stringify({ asin, region: env.amazonRegion });
-  void buildSignature(payload);
-
-  await cacheClient.setEx(key, 3600, JSON.stringify(mock));
-  return mock;
+  return (data.ItemsResult?.Items ?? []).map((item) => {
+    const listing = item.Offers?.Listings?.[0];
+    return {
+      asin: item.ASIN,
+      title: item.ItemInfo?.Title?.DisplayValue ?? item.ASIN,
+      price: listing?.Price?.Amount ?? 0,
+      rating: item.CustomerReviews?.StarRating?.Value ?? 0,
+      imageUrl: item.Images?.Primary?.Large?.URL ?? "",
+      features: item.ItemInfo?.Features?.DisplayValues ?? [],
+      affiliateUrl: item.DetailPageURL,
+      availability: listing?.Availability?.Message ?? "Available"
+    };
+  });
 }
 
-export async function searchProductsByKeyword(keyword: string): Promise<AmazonProduct[]> {
-  const key = cacheKey(`search:${keyword.toLowerCase()}`);
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export async function fetchProductByASIN(asin: string): Promise<AmazonProduct | null> {
+  const key = `amazon:asin:${asin}`;
   const cached = await cacheClient.get(key);
-  if (cached) {
-    return JSON.parse(cached) as AmazonProduct[];
+  if (cached) return JSON.parse(cached) as AmazonProduct;
+
+  try {
+    const results = await paApiRequest([asin]);
+    if (results.length > 0) {
+      await cacheClient.setEx(key, 3600, JSON.stringify(results[0]));
+      return results[0];
+    }
+  } catch {
+    // PA API unavailable — caller handles manual fallback
   }
 
-  const results = [
-    {
-      asin: "B000000001",
-      title: `${keyword} Pro Model`,
-      price: 129.99,
-      rating: 4.5,
-      imageUrl: "https://images-na.ssl-images-amazon.com/images/I/sample1.jpg",
-      features: ["Pro feature", "Compact"],
-      affiliateUrl: `https://www.amazon.com/dp/B000000001/?tag=${env.amazonPartnerTag || "tag"}`
-    }
-  ];
+  return null;
+}
 
-  await cacheClient.setEx(key, 1800, JSON.stringify(results));
+export async function fetchBatchByASINs(asins: string[]): Promise<AmazonProduct[]> {
+  // PA API batches max 10
+  const chunks: string[][] = [];
+  for (let i = 0; i < asins.length; i += 10) {
+    chunks.push(asins.slice(i, i + 10));
+  }
+
+  const results: AmazonProduct[] = [];
+  for (const chunk of chunks) {
+    try {
+      const items = await paApiRequest(chunk);
+      for (const item of items) {
+        await cacheClient.setEx(`amazon:asin:${item.asin}`, 3600, JSON.stringify(item));
+      }
+      results.push(...items);
+    } catch {
+      // skip failed chunks, continue
+    }
+  }
+
   return results;
 }
 
 export async function updateProductPrice(asin: string): Promise<number | null> {
+  // Invalidate cache to force fresh fetch
+  await cacheClient.setEx(`amazon:asin:${asin}`, 1, "{}");
   const product = await fetchProductByASIN(asin);
   return product?.price ?? null;
 }
 
-export async function getProductImages(asin: string): Promise<string[]> {
-  const product = await fetchProductByASIN(asin);
-  return product ? [product.imageUrl] : [];
+/** Build a standard Amazon.in affiliate URL from an ASIN + partner tag */
+export function buildAffiliateUrl(asin: string): string {
+  const tag = env.amazonPartnerTag ?? "adfirststore-21";
+  return `https://www.amazon.in/dp/${asin}/?tag=${tag}`;
 }

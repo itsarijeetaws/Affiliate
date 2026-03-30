@@ -16,15 +16,20 @@ type Product = {
   features: Array<{ id: number; key: string; value: string }>;
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // ISR — revalidate every hour
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  return buildMetadata({
-    title: `${slug} Review`,
-    description: `In-depth review, pros and cons, and buying advice for ${slug}.`,
-    path: `/product/${slug}`
-  });
+  try {
+    const product = await apiFetch<Product>(`/products/${slug}`);
+    return buildMetadata({
+      title: `${product.name} Review — Best Price in India`,
+      description: `In-depth ${product.name} review. Price: ₹${Number(product.price).toFixed(0)}, Rating: ${Number(product.rating).toFixed(1)}/5. Is it worth buying in India?`,
+      path: `/product/${slug}`
+    });
+  } catch {
+    return buildMetadata({ title: `${slug} Review`, description: `Review for ${slug}`, path: `/product/${slug}` });
+  }
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -40,14 +45,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     sku: product.slug,
     aggregateRating: {
       "@type": "AggregateRating",
-      ratingValue: product.rating,
+      ratingValue: Number(product.rating).toFixed(1),
       reviewCount: 1
     },
     offers: {
       "@type": "Offer",
-      priceCurrency: "USD",
-      price: product.price,
-      availability: "https://schema.org/InStock"
+      priceCurrency: "INR",
+      price: Number(product.price).toFixed(2),
+      availability: "https://schema.org/InStock",
+      url: product.affiliateUrl
     }
   };
 
@@ -83,7 +89,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       <header>
         <h1 className="text-3xl font-bold">{product.name}</h1>
-        <p className="mt-1 text-slate-600">Current price: ${Number(product.price).toFixed(2)} | Rating: {Number(product.rating).toFixed(1)}</p>
+        <p className="mt-1 text-slate-600">₹{Number(product.price).toFixed(0)} on Amazon India &nbsp;|&nbsp; ⭐ {Number(product.rating).toFixed(1)}/5</p>
       </header>
 
       <p>{product.description}</p>
@@ -118,9 +124,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
       </section>
 
-      <a href={`/go/${product.slug}`} className="inline-block rounded bg-brand-700 px-5 py-3 font-semibold text-white">
-        Buy on Amazon
+      <a href={product.affiliateUrl} target="_blank" rel="nofollow sponsored"
+        className="inline-block rounded bg-orange-500 px-6 py-3 font-bold text-white hover:bg-orange-600 transition-colors">
+        🛒 Buy on Amazon India — ₹{Number(product.price).toFixed(0)}
       </a>
+
+      <p className="text-xs text-slate-400 mt-4">
+        * As an Amazon Associate I earn from qualifying purchases. Price and availability may vary.
+      </p>
     </article>
   );
 }

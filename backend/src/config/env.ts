@@ -25,6 +25,8 @@ export const env = {
   wordpressAppPassword: process.env.WORDPRESS_APP_PASSWORD,
   amazonAccessKey: process.env.AMAZON_ACCESS_KEY,
   amazonSecretKey: process.env.AMAZON_SECRET_KEY,
-  amazonPartnerTag: process.env.AMAZON_PARTNER_TAG,
-  amazonRegion: process.env.AMAZON_REGION ?? "us-east-1"
+  amazonPartnerTag: process.env.AMAZON_PARTNER_TAG ?? process.env.AMAZON_MARKETPLACE_ID,
+  amazonRegion: process.env.AMAZON_REGION ?? "ap-southeast-1",
+  amazonMarketplaceId: process.env.AMAZON_MARKETPLACE_ID ?? "A21TJRUUN4KGV",
+  geminiApiKey: process.env.GEMINI_API_KEY
 };
