@@ -11,6 +11,7 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   const page = Number(req.query.page ?? 1);
   const limit = Math.min(Number(req.query.limit ?? 12), 50);
   const offset = (page - 1) * limit;
+  const query = String(req.query.q ?? "").trim().toLowerCase();
 
   // Manual query to bypass Drizzle relational JSON bug on MariaDB
   const productsResult = await db.select().from(schema.products)
@@ -32,11 +33,20 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
     ...p,
     category: categoriesList.find(c => c.id === p.categoryId) ?? null,
     features: featuresList.filter(f => f.productId === p.id)
-  }));
+  })).filter((item) => {
+    if (!query) return true;
+
+    return [
+      item.name,
+      item.slug,
+      item.description,
+      item.category?.name ?? ""
+    ].some((value) => value.toLowerCase().includes(query));
+  });
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(schema.products);
 
-  res.json({ items, pagination: { page, limit, total: Number(count) } });
+  res.json({ items, pagination: { page, limit, total: query ? items.length : Number(count) } });
 });
 
 productsRouter.get("/:slug", responseCache("product", 300), async (req, res) => {

@@ -29,9 +29,11 @@ export default async function ComparePage() {
   }));
 
   return (
-    <section>
-      <h1 className="text-3xl font-bold">Comparison Table</h1>
-      <p className="mt-2 text-slate-600">Directly compare features, ratings, and pricing.</p>
+    <section className="space-y-8">
+      <div className="rounded-[32px] border border-white/10 bg-white/[0.06] p-8 backdrop-blur-xl">
+        <h1 className="text-3xl font-semibold text-white">Comparison Table</h1>
+        <p className="mt-3 max-w-2xl text-white/62">Directly compare pricing, ratings, and key features in a cleaner premium dashboard format.</p>
+      </div>
       <div className="mt-6">
         <ComparisonTable items={items} />
       </div>

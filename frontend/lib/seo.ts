@@ -5,7 +5,7 @@ export function buildMetadata(input: {
   description: string;
   path?: string;
 }): Metadata {
-  const siteUrl = "https://www.example.com";
+  const siteUrl = process.env.NEXT_PUBLIC_API_URL || "https://whitesmoke-lapwing-348992.hostingersite.com";
   const url = input.path ? `${siteUrl}${input.path}` : siteUrl;
 
   return {

@@ -13,6 +13,19 @@ export type AmazonProduct = {
   availability: string;
 };
 
+export function getAmazonIntegrationStatus() {
+  const missing: string[] = [];
+
+  if (!env.amazonAccessKey) missing.push("AMAZON_ACCESS_KEY");
+  if (!env.amazonSecretKey) missing.push("AMAZON_SECRET_KEY");
+  if (!env.amazonPartnerTag) missing.push("AMAZON_PARTNER_TAG");
+
+  return {
+    configured: missing.length === 0,
+    missing
+  };
+}
+
 // ─── PA API v5 — AWS Signature V4 ─────────────────────────────────────────────
 
 const PA_API_HOST = "webservices.amazon.in";
@@ -31,8 +44,9 @@ function getSignatureKey(secretKey: string, dateStamp: string, region: string, s
 }
 
 async function paApiRequest(itemIds: string[]): Promise<AmazonProduct[]> {
-  if (!env.amazonAccessKey || !env.amazonSecretKey || !env.amazonPartnerTag) {
-    return [];
+  const status = getAmazonIntegrationStatus();
+  if (!status.configured) {
+    throw new Error(`Amazon PA API is not configured. Missing: ${status.missing.join(", ")}`);
   }
 
   const now = new Date();
@@ -153,6 +167,11 @@ export async function fetchProductByASIN(asin: string): Promise<AmazonProduct | 
 }
 
 export async function fetchBatchByASINs(asins: string[]): Promise<AmazonProduct[]> {
+  const status = getAmazonIntegrationStatus();
+  if (!status.configured) {
+    throw new Error(`Amazon PA API is not configured. Missing: ${status.missing.join(", ")}`);
+  }
+
   // PA API batches max 10
   const chunks: string[][] = [];
   for (let i = 0; i < asins.length; i += 10) {

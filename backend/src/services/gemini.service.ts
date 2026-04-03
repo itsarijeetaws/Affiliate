@@ -4,6 +4,13 @@ import { cacheClient } from "../lib/redis.js";
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
+export function getGeminiIntegrationStatus() {
+  return {
+    configured: Boolean(env.geminiApiKey),
+    missing: env.geminiApiKey ? [] : ["GEMINI_API_KEY"]
+  };
+}
+
 async function callGemini(prompt: string): Promise<string> {
   const apiKey = env.geminiApiKey;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");

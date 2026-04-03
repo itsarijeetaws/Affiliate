@@ -10,9 +10,23 @@ type WpPostPayload = {
   featured_media?: number;
 };
 
+export function getWordPressIntegrationStatus() {
+  const missing: string[] = [];
+
+  if (!env.wordpressBaseUrl) missing.push("WORDPRESS_BASE_URL");
+  if (!env.wordpressUsername) missing.push("WORDPRESS_USERNAME");
+  if (!env.wordpressAppPassword) missing.push("WORDPRESS_APP_PASSWORD");
+
+  return {
+    configured: missing.length === 0,
+    missing
+  };
+}
+
 function wpClient() {
-  if (!env.wordpressBaseUrl || !env.wordpressUsername || !env.wordpressAppPassword) {
-    throw new Error("WordPress credentials are not configured");
+  const status = getWordPressIntegrationStatus();
+  if (!status.configured) {
+    throw new Error(`WordPress credentials are not configured. Missing: ${status.missing.join(", ")}`);
   }
 
   const auth = Buffer.from(`${env.wordpressUsername}:${env.wordpressAppPassword}`).toString("base64");

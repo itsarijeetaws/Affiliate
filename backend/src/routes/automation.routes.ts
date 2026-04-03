@@ -5,10 +5,11 @@ import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAutomationApiKey } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import { fetchBatchByASINs, buildAffiliateUrl } from "../services/amazon.service.js";
-import { generateProductReview, generateRoundupPost } from "../services/gemini.service.js";
+import { fetchBatchByASINs, buildAffiliateUrl, getAmazonIntegrationStatus } from "../services/amazon.service.js";
+import { generateProductReview, generateRoundupPost, getGeminiIntegrationStatus } from "../services/gemini.service.js";
 import { runPriceUpdateJob } from "../services/price-update.service.js";
 import { toSlug } from "../utils/slug.js";
+import { getWordPressIntegrationStatus } from "../services/wordpress.service.js";
 
 const parseJsonArray = (val: unknown): string[] => {
   if (Array.isArray(val)) return val;
@@ -24,6 +25,19 @@ automationRouter.use(requireAutomationApiKey);
 async function logAuto(event: string, status: string, payload: unknown, message?: string) {
   await db.insert(schema.automationLogs).values({ event, status, payload: payload as object, message: message ?? null });
 }
+
+automationRouter.get("/status", async (_req, res) => {
+  const [latestLog] = await db.select().from(schema.automationLogs).orderBy(sql`createdAt DESC`).limit(1);
+
+  res.json({
+    integrations: {
+      amazon: getAmazonIntegrationStatus(),
+      gemini: getGeminiIntegrationStatus(),
+      wordpress: getWordPressIntegrationStatus()
+    },
+    latestLog: latestLog ?? null
+  });
+});
 
 // ─── Manual Product Add ───────────────────────────────────────────────────────
 
@@ -86,7 +100,7 @@ automationRouter.post("/add-products", validateBody(z.object({
     res.json({ createdIds, fetched: items.length });
   } catch (error) {
     await logAuto("add-products", "failed", req.body, String(error));
-    res.status(500).json({ message: "Failed", error: String(error) });
+    res.status(500).json({ message: "Amazon product import failed", error: String(error) });
   }
 });
 
@@ -190,12 +204,21 @@ automationRouter.post("/run-pipeline", validateBody(z.object({
 
 automationRouter.post("/update-prices", async (_req, res) => {
   try {
+    const amazon = getAmazonIntegrationStatus();
+    if (!amazon.configured) {
+      res.status(400).json({
+        message: "Price update cannot run because Amazon PA API is not configured",
+        missing: amazon.missing
+      });
+      return;
+    }
+
     const result = await runPriceUpdateJob();
     await logAuto("update-prices", "success", result);
     res.json(result);
   } catch (error) {
     await logAuto("update-prices", "failed", {}, String(error));
-    res.status(500).json({ message: "Price update failed" });
+    res.status(500).json({ message: "Price update failed", error: String(error) });
   }
 });
 

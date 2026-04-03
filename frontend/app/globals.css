@@ -4,16 +4,76 @@
 
 :root {
   color-scheme: light;
+  --page-bg: #07111c;
+  --page-bg-2: #101f31;
+  --ink: #f4efe7;
+  --muted: rgba(244, 239, 231, 0.68);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 28%),
+    radial-gradient(circle at right 20%, rgba(56, 189, 248, 0.14), transparent 24%),
+    linear-gradient(160deg, var(--page-bg) 0%, var(--page-bg-2) 52%, #030712 100%);
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
 }
 
 a {
-  @apply text-brand-700 hover:text-brand-900;
+  @apply transition-colors;
 }
 
 .container-shell {
   @apply mx-auto w-full max-w-6xl px-4;
+}
+
+.site-background {
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+  pointer-events: none;
+  z-index: -3;
+}
+
+.site-orb {
+  position: fixed;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.28;
+  pointer-events: none;
+  z-index: -2;
+}
+
+.site-orb-left {
+  left: -7rem;
+  top: 5rem;
+  background: rgba(251, 191, 36, 0.55);
+}
+
+.site-orb-right {
+  right: -6rem;
+  top: 12rem;
+  background: rgba(56, 189, 248, 0.42);
+}
+
+.hero-panel {
+  background:
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.22), transparent 32%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  box-shadow: 0 30px 120px rgba(2, 6, 23, 0.45);
+}
+
+.nav-pill {
+  @apply rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 transition hover:bg-white/[0.09];
 }
