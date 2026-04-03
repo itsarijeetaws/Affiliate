@@ -7,6 +7,23 @@ import { responseCache } from "../middleware/cache.js";
 
 export const productsRouter = Router();
 
+const parseJsonArray = (val: unknown): string[] => {
+  if (Array.isArray(val)) {
+    return val.filter((item): item is string => typeof item === "string");
+  }
+
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [val];
+    } catch {
+      return [val];
+    }
+  }
+
+  return [];
+};
+
 productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   const page = Number(req.query.page ?? 1);
   const limit = Math.min(Number(req.query.limit ?? 12), 50);
@@ -31,6 +48,8 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
 
   const items = productsResult.map(p => ({
     ...p,
+    pros: parseJsonArray(p.pros),
+    cons: parseJsonArray(p.cons),
     category: categoriesList.find(c => c.id === p.categoryId) ?? null,
     features: featuresList.filter(f => f.productId === p.id)
   })).filter((item) => {
@@ -63,7 +82,13 @@ productsRouter.get("/:slug", responseCache("product", 300), async (req, res) => 
     ? await db.select().from(schema.categories).where(eq(schema.categories.id, product.categoryId)).limit(1)
     : [null];
 
-  res.json({ ...product, features, category });
+  res.json({
+    ...product,
+    pros: parseJsonArray(product.pros),
+    cons: parseJsonArray(product.cons),
+    features,
+    category
+  });
 });
 
 productsRouter.put("/:id", requireAdminAuth, async (req, res) => {

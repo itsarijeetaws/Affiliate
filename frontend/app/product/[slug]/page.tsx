@@ -16,6 +16,23 @@ type Product = {
   features: Array<{ id: number; key: string; value: string }>;
 };
 
+const normalizeStringList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [value];
+    } catch {
+      return [value];
+    }
+  }
+
+  return [];
+};
+
 export const revalidate = 3600; // ISR — revalidate every hour
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -35,6 +52,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const product = await apiFetch<Product>(`/products/${slug}`);
+  const pros = normalizeStringList(product.pros);
+  const cons = normalizeStringList(product.cons);
 
   const productSchema = {
     "@context": "https://schema.org",
@@ -109,7 +128,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div>
           <h2 className="text-xl font-semibold text-emerald-700">Pros</h2>
           <ul className="mt-2 list-disc pl-5 text-slate-700">
-            {product.pros.map((pro) => (
+            {pros.map((pro) => (
               <li key={pro}>{pro}</li>
             ))}
           </ul>
@@ -117,7 +136,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div>
           <h2 className="text-xl font-semibold text-rose-700">Cons</h2>
           <ul className="mt-2 list-disc pl-5 text-slate-700">
-            {product.cons.map((con) => (
+            {cons.map((con) => (
               <li key={con}>{con}</li>
             ))}
           </ul>
