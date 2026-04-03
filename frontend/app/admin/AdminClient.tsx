@@ -145,20 +145,20 @@ export function AdminClient() {
   if (!token) {
     return (
       <div className="space-y-6">
-        <form onSubmit={login} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4 max-w-md">
-          <h2 className="text-xl font-semibold">Admin Login</h2>
-          <input className="w-full rounded border border-slate-300 p-2 text-sm" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-          <input type="password" className="w-full rounded border border-slate-300 p-2 text-sm" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <form onSubmit={login} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4 max-w-md text-slate-900">
+          <h2 className="text-xl font-semibold text-slate-900">Admin Login</h2>
+          <input className="w-full rounded border border-slate-300 p-2 text-sm text-slate-900" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+          <input type="password" className="w-full rounded border border-slate-300 p-2 text-sm text-slate-900" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <button disabled={loading} className="rounded bg-blue-600 px-4 py-2 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
             {loading ? "Logging in..." : "Login"}
           </button>
           {message && <p className="text-sm text-slate-500">{message}</p>}
         </form>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm max-w-md space-y-3">
-          <h2 className="text-xl font-semibold">Automation API Key</h2>
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm max-w-md space-y-3 text-slate-900">
+          <h2 className="text-xl font-semibold text-slate-900">Automation API Key</h2>
           <p className="text-sm text-slate-500">Required to run pipelines and generate content. Stored only in your browser.</p>
-          <input className="w-full rounded border border-slate-300 p-2 text-sm font-mono" placeholder="Your AUTOMATION_API_KEY" value={automationKey} onChange={(e) => setAutomationKey(e.target.value)} />
+          <input className="w-full rounded border border-slate-300 p-2 text-sm font-mono text-slate-900" placeholder="Your AUTOMATION_API_KEY" value={automationKey} onChange={(e) => setAutomationKey(e.target.value)} />
           <button onClick={saveKey} className="rounded bg-slate-800 px-4 py-2 text-white text-sm">Save Key</button>
         </div>
       </div>
@@ -187,21 +187,21 @@ export function AdminClient() {
 
       {/* ── Pipeline Tab ── */}
       {tab === "pipeline" && (
-        <form onSubmit={runPipeline} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold">Run Automation Pipeline</h2>
+        <form onSubmit={runPipeline} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4 text-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900">Run Automation Pipeline</h2>
           <p className="text-sm text-slate-500">Paste ASINs (one per line). The pipeline will fetch product data from Amazon PA API and optionally generate AI blog posts.</p>
           <div>
-            <label className="text-sm font-medium">Amazon ASINs</label>
-            <textarea rows={5} className="mt-1 w-full rounded border border-slate-300 p-2 text-sm font-mono" value={asins} onChange={(e) => setAsins(e.target.value)} placeholder="B09G9FPHY6&#10;B08L5TNJHG" />
+            <label className="text-sm font-medium text-slate-900">Amazon ASINs</label>
+            <textarea rows={5} className="mt-1 w-full rounded border border-slate-300 p-2 text-sm font-mono text-slate-900" value={asins} onChange={(e) => setAsins(e.target.value)} placeholder="B09G9FPHY6&#10;B08L5TNJHG" />
           </div>
           <div className="flex gap-4">
             <div>
-              <label className="text-sm font-medium">Category ID</label>
-              <input type="number" className="mt-1 w-24 rounded border border-slate-300 p-2 text-sm" value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} />
+              <label className="text-sm font-medium text-slate-900">Category ID</label>
+              <input type="number" className="mt-1 w-24 rounded border border-slate-300 p-2 text-sm text-slate-900" value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} />
             </div>
             <label className="flex items-center gap-2 cursor-pointer mt-5">
               <input type="checkbox" checked={generateContent} onChange={(e) => setGenerateContent(e.target.checked)} className="h-4 w-4" />
-              <span className="text-sm font-medium">Generate AI Content</span>
+              <span className="text-sm font-medium text-slate-900">Generate AI Content</span>
             </label>
           </div>
           <button disabled={loading} className="rounded bg-blue-600 px-6 py-2 text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
@@ -230,8 +230,8 @@ export function AdminClient() {
 
       {/* ── Manual Add Tab ── */}
       {tab === "manual" && (
-        <form onSubmit={addManualProduct} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold">Manual Product Add</h2>
+        <form onSubmit={addManualProduct} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4 text-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900">Manual Product Add</h2>
           <p className="text-sm text-slate-500">Add a product without PA API — useful when API keys aren't active yet.</p>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="text-sm font-medium">ASIN</label><input className="mt-1 w-full rounded border border-slate-300 p-2 text-sm font-mono" placeholder="B09G9FPHY6" value={manual.asin} onChange={(e) => setManual({ ...manual, asin: e.target.value })} /></div>
@@ -251,9 +251,9 @@ export function AdminClient() {
 
       {/* ── Products Tab ── */}
       {tab === "products" && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4 text-slate-900">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">All Products ({products.length})</h2>
+            <h2 className="text-lg font-semibold text-slate-900">All Products ({products.length})</h2>
             <button onClick={() => void fetchProducts()} className="text-sm text-blue-600 hover:underline">Refresh</button>
           </div>
           <div className="overflow-auto">
@@ -280,9 +280,9 @@ export function AdminClient() {
 
       {/* ── Logs Tab ── */}
       {tab === "logs" && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4 text-slate-900">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Automation Logs</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Automation Logs</h2>
             <button onClick={() => void fetchLogs()} className="text-sm text-blue-600 hover:underline">Refresh</button>
           </div>
           <div className="space-y-2">

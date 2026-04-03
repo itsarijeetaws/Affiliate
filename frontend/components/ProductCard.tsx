@@ -9,17 +9,24 @@ type Props = {
   rating: number;
 };
 
+function hasValidImage(imageUrl: string): boolean {
+  return Boolean(imageUrl) && !imageUrl.includes("/sample.jpg");
+}
+
 export function ProductCard({ name, slug, imageUrl, price, rating }: Props) {
+  const showImage = hasValidImage(imageUrl);
+
   return (
     <article className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.08] p-4 shadow-[0_24px_80px_rgba(7,10,20,0.28)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-amber-200/40 hover:bg-white/[0.11]">
       <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-slate-950 via-slate-800 to-slate-900">
-        {imageUrl ? (
+        {showImage ? (
           <Image
             src={imageUrl}
             alt={name}
             width={320}
             height={220}
             loading="lazy"
+            unoptimized
             className="h-52 w-full object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (

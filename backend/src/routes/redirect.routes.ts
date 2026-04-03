@@ -15,11 +15,15 @@ redirectRouter.get("/go/:product_slug", async (req, res) => {
     return;
   }
 
-  await db.insert(schema.clickEvents).values({
-    slug: product.slug,
-    ip: req.ip ?? null,
-    userAgent: req.get("user-agent") ?? null
-  });
+  try {
+    await db.insert(schema.clickEvents).values({
+      slug: product.slug,
+      ip: req.ip ?? null,
+      userAgent: req.get("user-agent") ?? null
+    });
+  } catch (error) {
+    console.warn("Click tracking insert failed, continuing redirect", error);
+  }
 
   res.redirect(302, product.affiliateUrl);
 });

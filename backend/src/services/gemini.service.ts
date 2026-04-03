@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 import { cacheClient } from "../lib/redis.js";
 
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 export function getGeminiIntegrationStatus() {
   return {
