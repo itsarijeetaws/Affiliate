@@ -18,7 +18,7 @@ type Post = {
 export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
-  const data = await apiFetch<{ items: Post[] }>("/blog?limit=20");
+  const data = await apiFetch<{ items: Post[] }>("/api/blog?limit=20");
 
   return (
     <section className="space-y-8">

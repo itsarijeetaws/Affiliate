@@ -36,7 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  const posts = await safeFetch<{ items: Array<{ slug: string; createdAt: string }> }>("/blog?limit=200");
+  const posts = await safeFetch<{ items: Array<{ slug: string; createdAt: string }> }>("/api/blog?limit=200");
   for (const post of posts?.items ?? []) {
     entries.push({
       url: `${SITE_URL}/blog/${post.slug}`,
@@ -48,4 +48,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return entries;
 }
-

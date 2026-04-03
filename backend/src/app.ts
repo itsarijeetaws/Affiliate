@@ -39,7 +39,7 @@ app.get("/health", (_req, res) => {
 app.use("/auth", authRouter);
 app.use("/products", productsRouter);
 app.use("/categories", categoriesRouter);
-app.use("/blog", blogRouter);
+app.use("/api/blog", blogRouter);
 app.use("/comparisons", comparisonsRouter);
 app.use("/analytics", analyticsRouter);
 app.use("/automation", automationRouter);

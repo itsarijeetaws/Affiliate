@@ -18,7 +18,7 @@ type BlogPost = {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
-    const post = await apiFetch<BlogPost>(`/blog/${slug}`);
+    const post = await apiFetch<BlogPost>(`/api/blog/${slug}`);
     return buildMetadata({
       title: post.seoTitle ?? post.title,
       description: post.seoDescription ?? post.excerpt ?? `Read ${post.title}`,
@@ -34,7 +34,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   let post: BlogPost | null = null;
   try {
-    post = await apiFetch<BlogPost>(`/blog/${slug}`);
+    post = await apiFetch<BlogPost>(`/api/blog/${slug}`);
   } catch {
     // fallback below
   }

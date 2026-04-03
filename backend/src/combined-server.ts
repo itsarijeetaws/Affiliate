@@ -50,7 +50,7 @@ async function start() {
       req.path.startsWith("/auth") ||
       req.path.startsWith("/products") ||
       req.path.startsWith("/categories") ||
-      req.path.startsWith("/blog") ||
+      req.path.startsWith("/api/blog") ||
       req.path.startsWith("/comparisons") ||
       req.path.startsWith("/analytics") ||
       req.path.startsWith("/automation") ||
