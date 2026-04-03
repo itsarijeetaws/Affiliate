@@ -49,13 +49,17 @@ async function paApiRequest(itemIds: string[]): Promise<AmazonProduct[]> {
     throw new Error(`Amazon PA API is not configured. Missing: ${status.missing.join(", ")}`);
   }
 
+  const amazonAccessKey = env.amazonAccessKey as string;
+  const amazonSecretKey = env.amazonSecretKey as string;
+  const amazonPartnerTag = env.amazonPartnerTag as string;
+
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "").substring(0, 15) + "Z";
   const dateStamp = amzDate.substring(0, 8);
 
   const payload = JSON.stringify({
     ItemIds: itemIds,
-    PartnerTag: env.amazonPartnerTag,
+    PartnerTag: amazonPartnerTag,
     PartnerType: "Associates",
     Marketplace: "www.amazon.in",
     Resources: [
@@ -93,11 +97,11 @@ async function paApiRequest(itemIds: string[]): Promise<AmazonProduct[]> {
     crypto.createHash("sha256").update(canonicalRequest).digest("hex")
   ].join("\n");
 
-  const signingKey = getSignatureKey(env.amazonSecretKey, dateStamp, PA_API_REGION, "ProductAdvertisingAPI");
+  const signingKey = getSignatureKey(amazonSecretKey, dateStamp, PA_API_REGION, "ProductAdvertisingAPI");
   const signature = crypto.createHmac("sha256", signingKey).update(stringToSign).digest("hex");
 
   const authHeader =
-    `AWS4-HMAC-SHA256 Credential=${env.amazonAccessKey}/${credentialScope}, ` +
+    `AWS4-HMAC-SHA256 Credential=${amazonAccessKey}/${credentialScope}, ` +
     `SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
   const response = await fetch(`https://${PA_API_HOST}${PA_API_PATH}`, {
