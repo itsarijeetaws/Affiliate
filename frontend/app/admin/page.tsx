@@ -1,5 +1,5 @@
 import { buildMetadata } from "@/lib/seo";
-import { AdminClient } from "./AdminClient";
+import { AdminDashboard } from "./AdminDashboard";
 
 export const metadata = buildMetadata({
   title: "Admin Dashboard",
@@ -15,7 +15,7 @@ export default function AdminPage() {
         <p className="mt-3 text-white/62">Manage products, categories, and automation jobs with clearer visual hierarchy and operational context.</p>
       </div>
       <div className="mt-6">
-        <AdminClient />
+        <AdminDashboard />
       </div>
     </section>
   );

@@ -14,12 +14,23 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
 
   try {
     const payload = jwt.verify(token, env.jwtSecret);
-    if (typeof payload === "string" || !payload.email || typeof payload.email !== "string") {
+    if (
+      typeof payload === "string" ||
+      !payload.email ||
+      typeof payload.email !== "string" ||
+      typeof payload.id !== "number" ||
+      typeof payload.isAdmin !== "boolean"
+    ) {
       res.status(401).json({ message: "Invalid token payload" });
       return;
     }
 
-    req.user = payload as typeof payload & { email: string };
+    if (!payload.isAdmin) {
+      res.status(403).json({ message: "Admin access required" });
+      return;
+    }
+
+    req.user = payload as typeof payload & { id: number; email: string; isAdmin: boolean };
     next();
   } catch {
     res.status(401).json({ message: "Invalid or expired token" });

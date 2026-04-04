@@ -1,41 +1,66 @@
 "use client";
 
-import { FormEvent, useState, useEffect, useCallback } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { API_URL } from "@/lib/api";
+import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
 
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
 type Product = { id: number; name: string; slug: string; price: number; rating: number };
-
 type Tab = "pipeline" | "manual" | "logs" | "products";
+type AuthMode = "login" | "register";
 
 export function AdminClient() {
   const [token, setToken] = useState("");
-  const [email, setEmail] = useState("admin@example.com");
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>("pipeline");
   const [logs, setLogs] = useState<Log[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-
-  // Pipeline state
   const [asins, setAsins] = useState("B09G9FPHY6\nB08L5TNJHG");
   const [categoryId, setCategoryId] = useState(1);
   const [generateContent, setGenerateContent] = useState(true);
   const [pipelineResults, setPipelineResults] = useState<unknown[]>([]);
-
-  // Manual add state
   const [manual, setManual] = useState({
     asin: "", name: "", price: 999, rating: 4.0,
     imageUrl: "", categoryId: 1, description: "", affiliateUrl: ""
   });
-
-  const apiKey = typeof window !== "undefined" ? localStorage.getItem("automation_api_key") ?? "" : "";
   const [automationKey, setAutomationKey] = useState("");
+
+  const loadSession = useCallback(async () => {
+    const storedToken = getStoredToken();
+    setToken(storedToken);
+
+    if (!storedToken) {
+      setUser(null);
+      return;
+    }
+
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${storedToken}` }
+    });
+
+    if (!response.ok) {
+      clearStoredToken();
+      setToken("");
+      setUser(null);
+      return;
+    }
+
+    const data = await response.json() as { user: AuthUser };
+    setUser(data.user);
+  }, []);
 
   useEffect(() => {
     setAutomationKey(localStorage.getItem("automation_api_key") ?? "");
-  }, []);
+    void loadSession();
+    window.addEventListener(AUTH_EVENT_NAME, loadSession);
+    return () => window.removeEventListener(AUTH_EVENT_NAME, loadSession);
+  }, [loadSession]);
 
   function saveKey() {
     localStorage.setItem("automation_api_key", automationKey);

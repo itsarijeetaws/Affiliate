@@ -16,6 +16,10 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET as string,
   adminEmail: process.env.ADMIN_EMAIL ?? "admin@example.com",
   adminPassword: process.env.ADMIN_PASSWORD ?? "change-me",
+  adminEmails: (process.env.ADMIN_EMAILS ?? process.env.ADMIN_EMAIL ?? "admin@example.com")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
   automationApiKey: process.env.AUTOMATION_API_KEY as string,
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:3000",
   redisUrl: process.env.REDIS_URL,

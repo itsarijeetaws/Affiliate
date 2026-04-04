@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, float, json, timestamp } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, float, json, timestamp, boolean } from "drizzle-orm/mysql-core";
 import { decimal } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
@@ -9,6 +9,16 @@ export const categories = mysqlTable("Category", {
   name: varchar("name", { length: 255 }).notNull().unique(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   description: text("description"),
+});
+
+export const users = mysqlTable("User", {
+  id: int("id").primaryKey().autoincrement(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  name: varchar("name", { length: 255 }),
+  passwordHash: text("passwordHash").notNull(),
+  isAdmin: boolean("isAdmin").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow().onUpdateNow(),
 });
 
 export const products = mysqlTable("Product", {
