@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { API_URL } from "@/lib/api";
+import { clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, type AuthUser } from "@/lib/auth";
 
 export function Header() {
@@ -16,7 +16,7 @@ export function Header() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/auth/me`, {
+      const response = await fetch(clientFetchUrl("/auth/me"), {
         headers: { Authorization: `Bearer ${token}` }
       });
 

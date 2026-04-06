@@ -21,7 +21,21 @@ app.use(helmet());
 app.use(compression());
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("combined"));
-app.use(cors({ origin: env.frontendUrl }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (env.frontendOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    }
+  })
+);
 
 app.use(
   rateLimit({

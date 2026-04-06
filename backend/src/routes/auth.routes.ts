@@ -15,7 +15,7 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().min(1),
   password: z.string().min(8)
 });
 
@@ -87,8 +87,24 @@ authRouter.post("/register", validateBody(registerSchema), async (req, res) => {
   });
 });
 
+function resolveLoginEmail(rawInput: string): string | null {
+  const raw = rawInput.trim();
+  if (raw.toLowerCase() === "admin") {
+    return normalizeEmail(env.adminEmail);
+  }
+  const email = normalizeEmail(raw);
+  return z.string().email().safeParse(email).success ? email : null;
+}
+
 authRouter.post("/login", validateBody(loginSchema), async (req, res) => {
-  const email = normalizeEmail(req.body.email);
+  const email = resolveLoginEmail(String(req.body.email));
+  if (!email) {
+    res.status(400).json({
+      message:
+        'Use a valid email address, or sign in with the username "admin" (uses ADMIN_EMAIL from the server).'
+    });
+    return;
+  }
   const password = String(req.body.password);
 
   let [user] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);

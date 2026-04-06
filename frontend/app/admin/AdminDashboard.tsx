@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { API_URL } from "@/lib/api";
+import { clientFetchJson, clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
 
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
@@ -40,7 +40,7 @@ export function AdminDashboard() {
       return;
     }
 
-    const response = await fetch(`${API_URL}/auth/me`, {
+    const response = await fetch(clientFetchUrl("/auth/me"), {
       headers: { Authorization: `Bearer ${storedToken}` }
     });
 
@@ -72,29 +72,50 @@ export function AdminDashboard() {
     setLoading(true);
     setMessage("");
 
-    const endpoint = authMode === "register" ? "/auth/register" : "/auth/login";
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        ...(authMode === "register" ? { name } : {})
-      })
-    });
-    const data = await response.json();
-    setLoading(false);
+    try {
+      const endpoint = authMode === "register" ? "/auth/register" : "/auth/login";
+      const { ok, data } = await clientFetchJson(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          ...(authMode === "register" ? { name } : {})
+        })
+      });
 
-    if (!response.ok) {
-      setMessage(data.message ?? "Authentication failed");
-      return;
+      if (!ok) {
+        const base =
+          typeof data.message === "string" ? data.message : "Authentication failed";
+        const issues = data.errors;
+        if (Array.isArray(issues) && issues.length > 0) {
+          const first = issues[0] as { message?: string };
+          setMessage(first?.message ? `${base}: ${first.message}` : base);
+        } else {
+          setMessage(base);
+        }
+        return;
+      }
+
+      const token = data.token;
+      const userPayload = data.user as AuthUser | undefined;
+      if (typeof token !== "string" || !userPayload) {
+        setMessage("Unexpected server response. Try again or check server logs.");
+        return;
+      }
+
+      setStoredToken(token);
+      setUser(userPayload);
+      setToken(token);
+      setPassword("");
+      setMessage(
+        userPayload.isAdmin
+          ? "Admin access granted."
+          : "Logged in, but this account is not an admin."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setStoredToken(data.token);
-    setUser(data.user);
-    setToken(data.token);
-    setPassword("");
-    setMessage(data.user.isAdmin ? "Admin access granted." : "Logged in, but this account is not an admin.");
   }
 
   function logout() {
@@ -108,7 +129,7 @@ export function AdminDashboard() {
     const key = localStorage.getItem("automation_api_key") ?? automationKey;
     if (!key) return;
 
-    const response = await fetch(`${API_URL}/automation/logs?limit=30`, {
+    const response = await fetch(clientFetchUrl("/automation/logs?limit=30"), {
       headers: { "x-automation-api-key": key }
     });
 
@@ -118,7 +139,7 @@ export function AdminDashboard() {
   }, [automationKey]);
 
   const fetchProducts = useCallback(async () => {
-    const response = await fetch(`${API_URL}/products?limit=50`);
+    const response = await fetch(clientFetchUrl("/products?limit=50"));
     if (response.ok) {
       setProducts((await response.json()).items);
     }
@@ -140,22 +161,31 @@ export function AdminDashboard() {
 
     setLoading(true);
     setMessage("Running pipeline...");
-    const asinList = asins.split(/[\n,]+/).map((asin) => asin.trim()).filter(Boolean);
-    const response = await fetch(`${API_URL}/automation/run-pipeline`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-automation-api-key": key },
-      body: JSON.stringify({ asins: asinList, categoryId: Number(categoryId), generateContent })
-    });
-    const data = await response.json();
-    setLoading(false);
+    try {
+      const asinList = asins.split(/[\n,]+/).map((asin) => asin.trim()).filter(Boolean);
+      const response = await fetch(clientFetchUrl("/automation/run-pipeline"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-automation-api-key": key },
+        body: JSON.stringify({ asins: asinList, categoryId: Number(categoryId), generateContent })
+      });
+      let data: Record<string, unknown> = {};
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch {
+        setMessage("Pipeline failed: invalid response from server");
+        return;
+      }
 
-    if (!response.ok) {
-      setMessage(data.message ?? "Pipeline failed");
-      return;
+      if (!response.ok) {
+        setMessage(typeof data.message === "string" ? data.message : "Pipeline failed");
+        return;
+      }
+
+      setPipelineResults((data.results as unknown[]) ?? []);
+      setMessage(`Pipeline complete. ${asinList.length} ASINs processed.`);
+    } finally {
+      setLoading(false);
     }
-
-    setPipelineResults(data.results ?? []);
-    setMessage(`Pipeline complete. ${asinList.length} ASINs processed.`);
   }
 
   async function addManualProduct(event: FormEvent) {
@@ -167,28 +197,38 @@ export function AdminDashboard() {
     }
 
     setLoading(true);
-    const response = await fetch(`${API_URL}/automation/manual-add-product`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-automation-api-key": key },
-      body: JSON.stringify({
-        ...manual,
-        price: Number(manual.price),
-        rating: Number(manual.rating),
-        categoryId: Number(manual.categoryId),
-        pros: ["Good quality"],
-        cons: ["Check reviews"],
-        affiliateUrl: manual.affiliateUrl || undefined
-      })
-    });
-    const data = await response.json();
-    setLoading(false);
+    try {
+      const response = await fetch(clientFetchUrl("/automation/manual-add-product"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-automation-api-key": key },
+        body: JSON.stringify({
+          ...manual,
+          price: Number(manual.price),
+          rating: Number(manual.rating),
+          categoryId: Number(manual.categoryId),
+          pros: ["Good quality"],
+          cons: ["Check reviews"],
+          affiliateUrl: manual.affiliateUrl || undefined
+        })
+      });
+      let data: Record<string, unknown> = {};
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch {
+        setMessage("Failed to add product: invalid response");
+        return;
+      }
 
-    if (!response.ok) {
-      setMessage(data.message ?? "Failed to add product");
-      return;
+      if (!response.ok) {
+        setMessage(typeof data.message === "string" ? data.message : "Failed to add product");
+        return;
+      }
+
+      const product = data.product as { name?: string } | undefined;
+      setMessage(`Product added: ${product?.name ?? "OK"}`);
+    } finally {
+      setLoading(false);
     }
-
-    setMessage(`Product added: ${data.product?.name}`);
   }
 
   async function generatePost(productId: number) {
@@ -200,20 +240,30 @@ export function AdminDashboard() {
 
     setLoading(true);
     setMessage(`Generating content for product #${productId}...`);
-    const response = await fetch(`${API_URL}/automation/generate-post`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-automation-api-key": key },
-      body: JSON.stringify({ productId, type: "review" })
-    });
-    const data = await response.json();
-    setLoading(false);
+    try {
+      const response = await fetch(clientFetchUrl("/automation/generate-post"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-automation-api-key": key },
+        body: JSON.stringify({ productId, type: "review" })
+      });
+      let data: Record<string, unknown> = {};
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch {
+        setMessage("Content generation failed: invalid response");
+        return;
+      }
 
-    if (!response.ok) {
-      setMessage(data.message ?? "Content generation failed");
-      return;
+      if (!response.ok) {
+        setMessage(typeof data.message === "string" ? data.message : "Content generation failed");
+        return;
+      }
+
+      const blogPost = data.blogPost as { title?: string } | undefined;
+      setMessage(`Blog post created: "${blogPost?.title ?? ""}"`);
+    } finally {
+      setLoading(false);
     }
-
-    setMessage(`Blog post created: "${data.blogPost?.title}"`);
   }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -245,7 +295,7 @@ export function AdminDashboard() {
             {authMode === "register" ? (
               <input className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={name} onChange={(event) => setName(event.target.value)} placeholder="Name" />
             ) : null}
-            <input className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" />
+            <input className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={authMode === "login" ? "Email or admin" : "Email"} />
             <input type="password" className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" />
           </div>
 

@@ -22,6 +22,11 @@ export const env = {
     .filter(Boolean),
   automationApiKey: process.env.AUTOMATION_API_KEY as string,
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:3000",
+  /** Browser origins allowed for CORS (comma-separated). Falls back to FRONTEND_URL. */
+  frontendOrigins: (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "http://localhost:3000")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   redisUrl: process.env.REDIS_URL,
   enableDailyCron: String(process.env.ENABLE_DAILY_CRON ?? "true") === "true",
   wordpressBaseUrl: process.env.WORDPRESS_BASE_URL,

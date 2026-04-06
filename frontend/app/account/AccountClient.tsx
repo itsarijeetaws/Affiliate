@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { API_URL } from "@/lib/api";
+import { clientFetchJson, clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
 
 type Mode = "login" | "register";
@@ -23,7 +23,7 @@ export function AccountClient() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/auth/me`, {
+      const response = await fetch(clientFetchUrl("/auth/me"), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -47,29 +47,47 @@ export function AccountClient() {
     setLoading(true);
     setMessage("");
 
-    const endpoint = mode === "register" ? "/auth/register" : "/auth/login";
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        ...(mode === "register" ? { name } : {})
-      })
-    });
+    try {
+      const endpoint = mode === "register" ? "/auth/register" : "/auth/login";
+      const { ok, data } = await clientFetchJson(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          ...(mode === "register" ? { name } : {})
+        })
+      });
 
-    const data = await response.json();
-    setLoading(false);
+      if (!ok) {
+        const base =
+          typeof data.message === "string"
+            ? data.message
+            : `${mode === "register" ? "Registration" : "Login"} failed`;
+        const issues = data.errors;
+        if (Array.isArray(issues) && issues.length > 0) {
+          const first = issues[0] as { message?: string };
+          setMessage(first?.message ? `${base}: ${first.message}` : base);
+        } else {
+          setMessage(base);
+        }
+        return;
+      }
 
-    if (!response.ok) {
-      setMessage(data.message ?? `${mode === "register" ? "Registration" : "Login"} failed`);
-      return;
+      const token = data.token;
+      const userPayload = data.user as AuthUser | undefined;
+      if (typeof token !== "string" || !userPayload) {
+        setMessage("Unexpected server response. Try again or check server logs.");
+        return;
+      }
+
+      setStoredToken(token);
+      setUser(userPayload);
+      setPassword("");
+      setMessage(mode === "register" ? "Account created successfully." : "Logged in successfully.");
+    } finally {
+      setLoading(false);
     }
-
-    setStoredToken(data.token);
-    setUser(data.user);
-    setPassword("");
-    setMessage(mode === "register" ? "Account created successfully." : "Logged in successfully.");
   }
 
   function logout() {
@@ -130,8 +148,8 @@ export function AccountClient() {
             </div>
           ) : null}
           <div>
-            <label className="text-sm text-white/70">Email</label>
-            <input className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white outline-none transition focus:border-amber-300/50" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+            <label className="text-sm text-white/70">{mode === "login" ? "Email or admin" : "Email"}</label>
+            <input className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white outline-none transition focus:border-amber-300/50" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={mode === "login" ? "you@example.com or admin" : "you@example.com"} />
           </div>
           <div>
             <label className="text-sm text-white/70">Password</label>
