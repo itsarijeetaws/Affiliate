@@ -19,7 +19,13 @@ type Product = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const data = await apiFetch<{ items: Product[] }>("/products?limit=12");
+  let data: { items: Product[] } = { items: [] };
+  try {
+    data = await apiFetch<{ items: Product[] }>("/products?limit=12");
+  } catch {
+    // Keep homepage renderable even if API is temporarily unreachable.
+    data = { items: [] };
+  }
   const featured = data.items.slice(0, 3);
 
   return (
@@ -96,6 +102,12 @@ export default async function HomePage() {
           <ProductCard key={product.id} {...product} />
         ))}
       </div>
+      {data.items.length === 0 ? (
+        <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
+          Product feed is temporarily unavailable. Check server logs and environment values for
+          `INTERNAL_API_URL`, `PORT`, and `DATABASE_URL`.
+        </div>
+      ) : null}
     </section>
   );
 }

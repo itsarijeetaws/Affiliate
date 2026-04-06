@@ -5,9 +5,13 @@ function stripTrailingSlash(s: string): string {
 }
 
 function internalApiBase(): string {
+  const runtimePort = process.env["PORT"]?.trim() || "4000";
+  const runtimeInternal = process.env["INTERNAL_API_URL"]?.trim();
+  const runtimePublic = process.env["NEXT_PUBLIC_API_URL"]?.trim();
   return stripTrailingSlash(
-    process.env.INTERNAL_API_URL?.trim() ||
-      process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    runtimeInternal ||
+      `http://127.0.0.1:${runtimePort}` ||
+      runtimePublic ||
       DEFAULT_PUBLIC_FALLBACK
   );
 }
