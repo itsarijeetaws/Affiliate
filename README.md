@@ -26,11 +26,11 @@ Production-ready starter monorepo for an Amazon affiliate website with:
 
 ## Quick Start
 
-1. Install dependencies:
+1. Install dependencies (**from the repository root** — npm workspaces hoist a single `react` / `react-dom`, which avoids `useContext` errors in the combined server):
 
 ```bash
-cd backend && npm install
-cd ../frontend && npm install
+npm install
+npm dedupe
 ```
 
 2. Configure environment files:
@@ -64,7 +64,7 @@ npm run dev
 
 ## Hostinger Node.js Deployment (One Application)
 
-Use repository root deployment with one Node process serving both Next.js and Express.
+Use repository root deployment with one Node process serving both Next.js and Express. The root `package-lock.json` is the only lockfile: do **not** run `npm install` only inside `backend/` or `frontend/` on the server, or you can get duplicate React copies and styled-jsx / `useContext` crashes.
 
 Hostinger app settings:
 

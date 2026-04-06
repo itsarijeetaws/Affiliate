@@ -2,21 +2,21 @@
   "name": "affiliate-platform-one-app",
   "private": true,
   "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "build": "npm --prefix backend install --include=dev && npm --prefix frontend install --include=dev && npm --prefix backend run prisma:push && npm --prefix frontend run build && npm --prefix backend run build && npm --prefix backend run seed && node scripts/prepare-hostinger-output.mjs",
+    "build": "npm install && npm dedupe && npm --prefix backend run prisma:push && npm --prefix frontend run build && npm --prefix backend run build && npm --prefix backend run seed && node scripts/prepare-hostinger-output.mjs",
     "start": "npm --prefix backend run start:combined",
     "dev": "npm --prefix backend run dev:combined"
   },
-  "dependencies": {
-    "express": "^4.21.2",
-    "next": "^15.5.12",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "drizzle-kit": "^0.30.0",
-    "prisma": "^6.6.0"
-  },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
   },
   "devDependencies": {}
 }
