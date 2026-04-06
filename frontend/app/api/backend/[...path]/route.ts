@@ -31,18 +31,21 @@ async function proxy(req: NextRequest, segments: string[]): Promise<NextResponse
   const authorization = req.headers.get("authorization");
   if (authorization) headers.set("authorization", authorization);
 
-  const init: RequestInit = {
-    method: req.method,
-    headers
-  };
-
-  if (req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS") {
-    const buf = await req.arrayBuffer();
-    if (buf.byteLength > 0) init.body = buf;
+  let body: string | undefined;
+  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+    // Must clone: reading the body locks the stream; Next can still touch the original request.
+    body = await req.clone().text();
   }
 
+  const init: RequestInit = {
+    method: req.method,
+    headers,
+    body: body && body.length > 0 ? body : undefined,
+    cache: "no-store"
+  };
+
   try {
-    const res = await fetch(target, { ...init, cache: "no-store" });
+    const res = await fetch(target, init);
     const text = await res.text();
     const out = new NextResponse(text, { status: res.status });
     const ct = res.headers.get("content-type");
@@ -69,7 +72,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
   return proxy(req, path);
 }
 
-export async function OPTIONS(req: NextRequest, ctx: RouteCtx) {
+/** Do not forward OPTIONS or read its body — avoids undici "body disturbed or locked" on some hosts. */
+export async function OPTIONS(_req: NextRequest, ctx: RouteCtx) {
   const { path } = await ctx.params;
-  return proxy(req, path);
+  const pathStr = `/${path.join("/")}`;
+  if (!allowBackendPath(pathStr)) {
+    return NextResponse.json({ message: "Proxy path not allowed" }, { status: 403 });
+  }
+  return new NextResponse(null, {
+    status: 204,
+    headers: { Allow: "GET, HEAD, POST, OPTIONS" }
+  });
 }
