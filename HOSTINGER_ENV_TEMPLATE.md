@@ -18,6 +18,7 @@ ADMIN_PASSWORD=replace_with_strong_password
 
 FRONTEND_URL=https://yourdomain.com
 NEXT_PUBLIC_API_URL=https://yourdomain.com
+# Must be loopback + your app PORT — never the public https URL (breaks server-side fetches and can confuse hosting).
 INTERNAL_API_URL=http://127.0.0.1:3000
 
 ENABLE_DAILY_CRON=true

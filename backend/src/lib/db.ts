@@ -27,6 +27,8 @@ const pool = mysql.createPool({
   uri: buildConnectionString(),
   waitForConnections: true,
   connectionLimit: 5,
+  connectTimeout: 12_000,
+  enableKeepAlive: true
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

@@ -15,11 +15,28 @@ function internalApiBase(): string {
 /**
  * Base URL for browser fetches. Uses NEXT_PUBLIC_API_URL when set; otherwise the current
  * page origin (works for combined Express + Next on one host without extra env).
+ *
+ * When the env URL matches the page origin, returns a **relative** path (e.g. `/auth/login`)
+ * so the browser talks to the same host that served the page — avoids edge/DNS issues on
+ * some hosts where an absolute public URL behaves differently.
  */
 export function clientFetchUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (fromEnv) return `${stripTrailingSlash(fromEnv)}${p}`;
+  if (fromEnv) {
+    const base = stripTrailingSlash(fromEnv);
+    if (typeof window !== "undefined") {
+      try {
+        const absoluteBase = base.includes("://") ? base : `https://${base}`;
+        if (new URL(absoluteBase).origin === window.location.origin) {
+          return p;
+        }
+      } catch {
+        /* fall through to absolute URL below */
+      }
+    }
+    return `${base}${p}`;
+  }
   if (typeof window !== "undefined") {
     return `${window.location.origin}${p}`;
   }
@@ -83,7 +100,7 @@ export async function clientFetchJson(
       status: 0,
       data: {
         message: aborted
-          ? "Request timed out. Confirm the backend is running and NEXT_PUBLIC_API_URL matches your site URL."
+          ? "Request timed out (30s). The API did not respond. Fix: on Hostinger Node, set INTERNAL_API_URL=http://127.0.0.1:PORT (same PORT as your app — not your public https URL). Check DATABASE_URL reaches MySQL and the Node process (Express + Next) is actually running."
           : `Could not reach the server (${message}). Check CORS (FRONTEND_URL / FRONTEND_URLS) and the API base URL.`
       }
     };
