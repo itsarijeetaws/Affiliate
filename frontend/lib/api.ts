@@ -7,13 +7,8 @@ function stripTrailingSlash(s: string): string {
 function internalApiBase(): string {
   const runtimePort = process.env["PORT"]?.trim() || "4000";
   const runtimeInternal = process.env["INTERNAL_API_URL"]?.trim();
-  const runtimePublic = process.env["NEXT_PUBLIC_API_URL"]?.trim();
-  return stripTrailingSlash(
-    runtimeInternal ||
-      `http://127.0.0.1:${runtimePort}` ||
-      runtimePublic ||
-      DEFAULT_PUBLIC_FALLBACK
-  );
+  if (runtimeInternal) return stripTrailingSlash(runtimeInternal);
+  return `http://127.0.0.1:${runtimePort}`;
 }
 
 /**
@@ -27,9 +22,29 @@ function internalApiBase(): string {
 export function clientFetchUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const isBrowser = typeof window !== "undefined";
+
+  // Same-origin combined Hostinger: browser → Next `/api/backend/auth/*` → loopback Express.
+  // Avoids edge cases where POST `/auth/*` never reaches Express behind the public hostname.
+  if (isBrowser && p.startsWith("/auth")) {
+    let useNextProxy = !fromEnv;
+    if (fromEnv) {
+      try {
+        const abs = fromEnv.includes("://") ? fromEnv : `https://${fromEnv}`;
+        useNextProxy = new URL(abs).origin === window.location.origin;
+      } catch {
+        useNextProxy = false;
+      }
+    }
+    if (useNextProxy) {
+      return `/api/backend${p}`;
+    }
+    return `${stripTrailingSlash(fromEnv!)}${p}`;
+  }
+
   if (fromEnv) {
     const base = stripTrailingSlash(fromEnv);
-    if (typeof window !== "undefined") {
+    if (isBrowser) {
       try {
         const absoluteBase = base.includes("://") ? base : `https://${base}`;
         if (new URL(absoluteBase).origin === window.location.origin) {
@@ -41,7 +56,7 @@ export function clientFetchUrl(path: string): string {
     }
     return `${base}${p}`;
   }
-  if (typeof window !== "undefined") {
+  if (isBrowser) {
     return `${window.location.origin}${p}`;
   }
   return `${stripTrailingSlash(DEFAULT_PUBLIC_FALLBACK)}${p}`;
@@ -104,7 +119,7 @@ export async function clientFetchJson(
       status: 0,
       data: {
         message: aborted
-          ? "Request timed out (30s). The API did not respond. Fix: on Hostinger Node, set INTERNAL_API_URL=http://127.0.0.1:PORT (same PORT as your app — not your public https URL). Check DATABASE_URL reaches MySQL and the Node process (Express + Next) is actually running."
+          ? "Request timed out (30s). Confirm PORT matches your app (e.g. 4000), INTERNAL_API_URL=http://127.0.0.1:PORT, DATABASE_URL works, and redeploy. Auth uses /api/backend/auth/* → Express on loopback."
           : `Could not reach the server (${message}). Check CORS (FRONTEND_URL / FRONTEND_URLS) and the API base URL.`
       }
     };
