@@ -6,7 +6,13 @@ import * as schema from "../db/schema.js";
 import { requireAutomationApiKey } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { fetchBatchByASINs, buildAffiliateUrl, getAmazonIntegrationStatus } from "../services/amazon.service.js";
-import { generateProductReview, generateRoundupPost, getGeminiIntegrationStatus } from "../services/gemini.service.js";
+import {
+  generateProductReview,
+  generateRoundupPost,
+  getAnthropicIntegrationStatus,
+  getGeminiIntegrationStatus,
+  getOpenaiIntegrationStatus
+} from "../services/gemini.service.js";
 import { runPriceUpdateJob } from "../services/price-update.service.js";
 import { toSlug } from "../utils/slug.js";
 import { getWordPressIntegrationStatus } from "../services/wordpress.service.js";
@@ -33,6 +39,8 @@ automationRouter.get("/status", async (_req, res) => {
     integrations: {
       amazon: getAmazonIntegrationStatus(),
       gemini: getGeminiIntegrationStatus(),
+      anthropic: getAnthropicIntegrationStatus(),
+      openai: getOpenaiIntegrationStatus(),
       wordpress: getWordPressIntegrationStatus()
     },
     latestLog: latestLog ?? null

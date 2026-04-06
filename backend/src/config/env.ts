@@ -32,5 +32,7 @@ export const env = {
   amazonPartnerTag: process.env.AMAZON_PARTNER_TAG ?? process.env.AMAZON_MARKETPLACE_ID,
   amazonRegion: process.env.AMAZON_REGION ?? "ap-southeast-1",
   amazonMarketplaceId: process.env.AMAZON_MARKETPLACE_ID ?? "A21TJRUUN4KGV",
-  geminiApiKey: process.env.GEMINI_API_KEY
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  openaiApiKey: process.env.OPENAI_API_KEY
 };

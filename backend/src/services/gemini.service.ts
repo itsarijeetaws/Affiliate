@@ -3,11 +3,31 @@ import { cacheClient } from "../lib/redis.js";
 
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+
+/** Fallback order: Gemini → Anthropic → OpenAI (only providers with keys are tried). */
+const ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022";
+const OPENAI_MODEL = "gpt-4o-mini";
 
 export function getGeminiIntegrationStatus() {
   return {
     configured: Boolean(env.geminiApiKey),
     missing: env.geminiApiKey ? [] : ["GEMINI_API_KEY"]
+  };
+}
+
+export function getAnthropicIntegrationStatus() {
+  return {
+    configured: Boolean(env.anthropicApiKey),
+    missing: env.anthropicApiKey ? [] : ["ANTHROPIC_API_KEY"]
+  };
+}
+
+export function getOpenaiIntegrationStatus() {
+  return {
+    configured: Boolean(env.openaiApiKey),
+    missing: env.openaiApiKey ? [] : ["OPENAI_API_KEY"]
   };
 }
 
@@ -34,6 +54,108 @@ async function callGemini(prompt: string): Promise<string> {
   };
 
   return data.candidates[0]?.content?.parts[0]?.text ?? "";
+}
+
+async function callAnthropic(prompt: string): Promise<string> {
+  const apiKey = env.anthropicApiKey;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 4096,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Anthropic API error: ${response.status} — ${err}`);
+  }
+
+  const data = (await response.json()) as {
+    content: Array<{ type: string; text?: string }>;
+  };
+
+  const text = data.content
+    ?.filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join("") ?? "";
+  return text;
+}
+
+async function callOpenAI(prompt: string): Promise<string> {
+  const apiKey = env.openaiApiKey;
+  if (!apiKey) throw new Error("OPENAI_API_KEY not set");
+
+  const response = await fetch(OPENAI_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      temperature: 0.7,
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} — ${err}`);
+  }
+
+  const data = (await response.json()) as {
+    choices: Array<{ message?: { content?: string | null } }>;
+  };
+
+  return data.choices[0]?.message?.content ?? "";
+}
+
+async function generateLlmText(prompt: string): Promise<string> {
+  const attempts: string[] = [];
+
+  const run = async (label: string, fn: () => Promise<string>): Promise<string | null> => {
+    try {
+      const text = (await fn()).trim();
+      if (text) return text;
+      attempts.push(`${label}: empty response`);
+    } catch (e) {
+      attempts.push(`${label}: ${String(e)}`);
+    }
+    return null;
+  };
+
+  if (env.geminiApiKey) {
+    const out = await run("gemini", () => callGemini(prompt));
+    if (out) return out;
+  }
+
+  if (env.anthropicApiKey) {
+    const out = await run("anthropic", () => callAnthropic(prompt));
+    if (out) return out;
+  }
+
+  if (env.openaiApiKey) {
+    const out = await run("openai", () => callOpenAI(prompt));
+    if (out) return out;
+  }
+
+  if (!env.geminiApiKey && !env.anthropicApiKey && !env.openaiApiKey) {
+    throw new Error(
+      "No LLM API keys configured. Set at least one of GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY"
+    );
+  }
+
+  throw new Error(`All configured LLM providers failed:\n${attempts.join("\n")}`);
 }
 
 export type GeneratedPost = {
@@ -87,7 +209,7 @@ Rules:
 - 800-1000 words total
 - Return ONLY the HTML content, no markdown code blocks`;
 
-  const content = await callGemini(prompt);
+  const content = await generateLlmText(prompt);
   const slug = product.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -148,7 +270,7 @@ Rules:
 - Include Amazon affiliate disclaimer
 - Return ONLY the HTML content`;
 
-  const content = await callGemini(prompt);
+  const content = await generateLlmText(prompt);
   const slug = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -214,7 +336,7 @@ Rules:
 - Include affiliate disclaimer
 - Return ONLY the HTML content`;
 
-  const content = await callGemini(prompt);
+  const content = await generateLlmText(prompt);
   const slug = names
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
