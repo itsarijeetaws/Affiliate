@@ -4,14 +4,14 @@ import { relations } from "drizzle-orm";
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
 
-export const categories = mysqlTable("Category", {
+export const categories = mysqlTable("category", {
   id: int("id").primaryKey().autoincrement(),
   name: varchar("name", { length: 255 }).notNull().unique(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   description: text("description"),
 });
 
-export const users = mysqlTable("User", {
+export const users = mysqlTable("user", {
   id: int("id").primaryKey().autoincrement(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }),
@@ -23,7 +23,7 @@ export const users = mysqlTable("User", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow().onUpdateNow(),
 });
 
-export const products = mysqlTable("Product", {
+export const products = mysqlTable("product", {
   id: int("id").primaryKey().autoincrement(),
   name: varchar("name", { length: 500 }).notNull(),
   slug: varchar("slug", { length: 500 }).notNull().unique(),
@@ -41,14 +41,14 @@ export const products = mysqlTable("Product", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow().onUpdateNow(),
 });
 
-export const productFeatures = mysqlTable("ProductFeature", {
+export const productFeatures = mysqlTable("productfeature", {
   id: int("id").primaryKey().autoincrement(),
   productId: int("productId").notNull(),
   key: varchar("key", { length: 255 }).notNull(),
   value: text("value").notNull(),
 });
 
-export const blogPosts = mysqlTable("BlogPost", {
+export const blogPosts = mysqlTable("blogpost", {
   id: int("id").primaryKey().autoincrement(),
   title: varchar("title", { length: 500 }).notNull(),
   slug: varchar("slug", { length: 500 }).notNull().unique(),
@@ -63,7 +63,7 @@ export const blogPosts = mysqlTable("BlogPost", {
   updatedAt: timestamp("updatedAt").notNull().defaultNow().onUpdateNow(),
 });
 
-export const comparisons = mysqlTable("Comparison", {
+export const comparisons = mysqlTable("comparison", {
   id: int("id").primaryKey().autoincrement(),
   title: varchar("title", { length: 500 }).notNull(),
   slug: varchar("slug", { length: 500 }).notNull().unique(),
@@ -72,7 +72,7 @@ export const comparisons = mysqlTable("Comparison", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
-export const automationLogs = mysqlTable("AutomationLog", {
+export const automationLogs = mysqlTable("automationlog", {
   id: int("id").primaryKey().autoincrement(),
   event: varchar("event", { length: 255 }).notNull(),
   status: varchar("status", { length: 50 }).notNull(),
@@ -81,7 +81,7 @@ export const automationLogs = mysqlTable("AutomationLog", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
-export const clickEvents = mysqlTable("ClickEvent", {
+export const clickEvents = mysqlTable("clickevent", {
   id: int("id").primaryKey().autoincrement(),
   slug: varchar("slug", { length: 500 }).notNull(),
   ip: varchar("ip", { length: 100 }),
