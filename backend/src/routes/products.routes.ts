@@ -42,7 +42,8 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   }
 
   // Manual query to bypass Drizzle relational JSON bug on MariaDB
-  let productsResult;
+  type ProductRow = typeof schema.products.$inferSelect;
+  let productsResult: ProductRow[] = [];
   if (slugNotFound) {
     // Unknown category slug — return empty rather than all products
     productsResult = [];
