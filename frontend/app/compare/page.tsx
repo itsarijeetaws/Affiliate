@@ -1,42 +1,39 @@
-import { ComparisonTable } from "@/components/ComparisonTable";
 import { buildMetadata } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
+import { CompareClient } from "./CompareClient";
 
 export const metadata = buildMetadata({
-  title: "Product Comparison Tables",
-  description: "Compare up to 10 products side-by-side with pricing and features.",
+  title: "Product Comparison — BestBuysIndia",
+  description: "Compare products side-by-side: price, rating, pros, cons and value for money.",
   path: "/compare"
 });
 
-type Product = {
-  id: number;
-  name: string;
-  slug: string;
-  imageUrl: string;
-  price: number;
-  rating: number;
-  features: Array<{ key: string; value: string }>;
-};
-
 export const dynamic = "force-dynamic";
 
-export default async function ComparePage() {
-  const data = await apiFetch<{ items: Product[] }>("/products?limit=10");
+type Category = { id: number; name: string; slug: string };
 
-  const items = data.items.map((item) => ({
-    ...item,
-    features: item.features?.map((f) => `${f.key}: ${f.value}`) ?? []
-  }));
+export default async function ComparePage() {
+  let categories: Category[] = [];
+  try {
+    categories = await apiFetch<Category[]>("/categories");
+  } catch { /* fallback to empty */ }
 
   return (
-    <section className="space-y-8">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.06] p-8 backdrop-blur-xl">
-        <h1 className="text-3xl font-semibold text-white">Comparison Table</h1>
-        <p className="mt-3 max-w-2xl text-white/62">Directly compare pricing, ratings, and key features in a cleaner premium dashboard format.</p>
+    <section className="space-y-6">
+      {/* Header */}
+      <div className="rounded-xl border border-gray-200 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-7">
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#FF9900]/20 bg-[#FF9900]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#FF9900]">
+          Side-by-side
+        </span>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Product Comparison
+        </h1>
+        <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-gray-500 dark:text-white/45">
+          Pick a category, choose up to 4 products, and compare price, rating, pros &amp; cons side-by-side.
+        </p>
       </div>
-      <div className="mt-6">
-        <ComparisonTable items={items} />
-      </div>
+
+      <CompareClient initialCategories={categories} />
     </section>
   );
 }

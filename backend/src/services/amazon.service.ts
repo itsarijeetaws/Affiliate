@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { env } from "../config/env.js";
 import { cacheClient } from "../lib/redis.js";
 
@@ -13,139 +12,150 @@ export type AmazonProduct = {
   availability: string;
 };
 
+// ─── OAuth2 token (in-memory cache) ──────────────────────────────────────────
+// Credential v3.2 → EU region → token endpoint: api.amazon.co.uk/auth/o2/token
+// India (IN) is in the EU region for Creators API v3.x credentials.
+
+const TOKEN_ENDPOINT = "https://api.amazon.co.uk/auth/o2/token";
+const CREATORS_API_BASE = "https://creatorsapi.amazon";
+const MARKETPLACE = "www.amazon.in";
+
+let _tokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getAccessToken(): Promise<string> {
+  const now = Date.now();
+  if (_tokenCache && _tokenCache.expiresAt > now + 60_000) {
+    return _tokenCache.token;
+  }
+
+  const clientId = env.amazonClientId;
+  const clientSecret = env.amazonClientSecret;
+  if (!clientId || !clientSecret) {
+    throw new Error("AMAZON_CLIENT_ID or AMAZON_CLIENT_SECRET not set in .env");
+  }
+
+  // v3.x credentials use JSON body (not URL-encoded)
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: "creatorsapi::default",
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Creators API OAuth2 token error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json() as { access_token: string; expires_in: number };
+  _tokenCache = {
+    token: data.access_token,
+    expiresAt: now + data.expires_in * 1000,
+  };
+
+  console.log("[Creators API] New token obtained, expires in", data.expires_in, "s");
+  return data.access_token;
+}
+
+// ─── Integration status ───────────────────────────────────────────────────────
+
 export function getAmazonIntegrationStatus() {
   const missing: string[] = [];
+  if (!env.amazonClientId)     missing.push("AMAZON_CLIENT_ID");
+  if (!env.amazonClientSecret) missing.push("AMAZON_CLIENT_SECRET");
+  if (!env.amazonPartnerTag)   missing.push("AMAZON_PARTNER_TAG");
+  return { configured: missing.length === 0, missing };
+}
 
-  if (!env.amazonAccessKey) missing.push("AMAZON_ACCESS_KEY");
-  if (!env.amazonSecretKey) missing.push("AMAZON_SECRET_KEY");
-  if (!env.amazonPartnerTag) missing.push("AMAZON_PARTNER_TAG");
+// ─── Creators API getItems ────────────────────────────────────────────────────
 
-  return {
-    configured: missing.length === 0,
-    missing
+type CreatorsItem = {
+  asin: string;
+  detailPageURL: string;
+  itemInfo?: {
+    title?: { displayValue: string };
+    features?: { displayValues: string[] };
   };
-}
+  images?: {
+    primary?: {
+      large?: { url: string; height: number; width: number } | null;
+      medium?: { url: string } | null;
+    } | null;
+  };
+  offersV2?: {
+    listings?: Array<{
+      price?: { amount: number; currency: string };
+      availability?: { message: string };
+    }>;
+  } | null;
+  customerReviews?: {
+    starRating?: { value: number } | null;
+  } | null;
+};
 
-// ─── PA API v5 — AWS Signature V4 ─────────────────────────────────────────────
-
-const PA_API_HOST = "webservices.amazon.in";
-const PA_API_PATH = "/paapi5/getitems";
-const PA_API_REGION = "us-east-1"; // PA API India uses us-east-1 endpoint
-
-function sign(key: Buffer, msg: string): Buffer {
-  return crypto.createHmac("sha256", key).update(msg).digest();
-}
-
-function getSignatureKey(secretKey: string, dateStamp: string, region: string, service: string): Buffer {
-  const kDate = sign(Buffer.from(`AWS4${secretKey}`), dateStamp);
-  const kRegion = sign(kDate, region);
-  const kService = sign(kRegion, service);
-  return sign(kService, "aws4_request");
-}
-
-async function paApiRequest(itemIds: string[]): Promise<AmazonProduct[]> {
+async function creatorsApiRequest(itemIds: string[]): Promise<AmazonProduct[]> {
   const status = getAmazonIntegrationStatus();
   if (!status.configured) {
-    throw new Error(`Amazon PA API is not configured. Missing: ${status.missing.join(", ")}`);
+    throw new Error(`Amazon not configured. Missing: ${status.missing.join(", ")}`);
   }
 
-  const amazonAccessKey = env.amazonAccessKey as string;
-  const amazonSecretKey = env.amazonSecretKey as string;
-  const amazonPartnerTag = env.amazonPartnerTag as string;
+  const token = await getAccessToken();
+  const partnerTag = env.amazonPartnerTag as string;
 
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "").substring(0, 15) + "Z";
-  const dateStamp = amzDate.substring(0, 8);
-
-  const payload = JSON.stringify({
-    ItemIds: itemIds,
-    PartnerTag: amazonPartnerTag,
-    PartnerType: "Associates",
-    Marketplace: "www.amazon.in",
-    Resources: [
-      "Images.Primary.Large",
-      "ItemInfo.Title",
-      "ItemInfo.Features",
-      "Offers.Listings.Price",
-      "Offers.Listings.Availability.Message",
-      "CustomerReviews.StarRating"
-    ]
+  const body = JSON.stringify({
+    itemIds,
+    itemIdType: "ASIN",
+    marketplace: MARKETPLACE,
+    partnerTag,
+    resources: [
+      "images.primary.large",
+      "images.primary.medium",
+      "itemInfo.title",
+      "itemInfo.features",
+      "offersV2.listings.price",
+      "offersV2.listings.availability",
+      "customerReviews.starRating",
+      "customerReviews.count",
+    ],
   });
 
-  const payloadHash = crypto.createHash("sha256").update(payload).digest("hex");
-  const canonicalHeaders =
-    `content-encoding:amz-1.0\n` +
-    `content-type:application/json; charset=utf-8\n` +
-    `host:${PA_API_HOST}\n` +
-    `x-amz-date:${amzDate}\n` +
-    `x-amz-target:com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems\n`;
-  const signedHeaders = "content-encoding;content-type;host;x-amz-date;x-amz-target";
-  const canonicalRequest = [
-    "POST",
-    PA_API_PATH,
-    "",
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash
-  ].join("\n");
-
-  const credentialScope = `${dateStamp}/${PA_API_REGION}/ProductAdvertisingAPI/aws4_request`;
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    crypto.createHash("sha256").update(canonicalRequest).digest("hex")
-  ].join("\n");
-
-  const signingKey = getSignatureKey(amazonSecretKey, dateStamp, PA_API_REGION, "ProductAdvertisingAPI");
-  const signature = crypto.createHmac("sha256", signingKey).update(stringToSign).digest("hex");
-
-  const authHeader =
-    `AWS4-HMAC-SHA256 Credential=${amazonAccessKey}/${credentialScope}, ` +
-    `SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  const response = await fetch(`https://${PA_API_HOST}${PA_API_PATH}`, {
+  const res = await fetch(`${CREATORS_API_BASE}/catalog/v1/getItems`, {
     method: "POST",
     headers: {
-      "content-encoding": "amz-1.0",
-      "content-type": "application/json; charset=utf-8",
-      host: PA_API_HOST,
-      "x-amz-date": amzDate,
-      "x-amz-target": "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems",
-      Authorization: authHeader
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "x-marketplace": MARKETPLACE,
     },
-    body: payload
+    body,
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`PA API error ${response.status}: ${text}`);
+  if (!res.ok) {
+    const text = await res.text();
+    _tokenCache = null; // bust token cache on auth errors
+    throw new Error(`Creators API error ${res.status}: ${text}`);
   }
 
-  const data = (await response.json()) as {
-    ItemsResult?: {
-      Items: Array<{
-        ASIN: string;
-        ItemInfo?: { Title?: { DisplayValue: string }; Features?: { DisplayValues: string[] } };
-        Images?: { Primary?: { Large?: { URL: string } } };
-        Offers?: { Listings?: Array<{ Price?: { Amount: number }; Availability?: { Message: string } }> };
-        CustomerReviews?: { StarRating?: { Value: number } };
-        DetailPageURL: string;
-      }>;
-    };
+  const data = await res.json() as {
+    itemsResult?: { items: CreatorsItem[] };
   };
 
-  return (data.ItemsResult?.Items ?? []).map((item) => {
-    const listing = item.Offers?.Listings?.[0];
+  return (data.itemsResult?.items ?? []).map((item) => {
+    const listing = item.offersV2?.listings?.[0];
+    const imgLarge = item.images?.primary?.large?.url ?? "";
+    const imgMed   = item.images?.primary?.medium?.url ?? "";
     return {
-      asin: item.ASIN,
-      title: item.ItemInfo?.Title?.DisplayValue ?? item.ASIN,
-      price: listing?.Price?.Amount ?? 0,
-      rating: item.CustomerReviews?.StarRating?.Value ?? 0,
-      imageUrl: item.Images?.Primary?.Large?.URL ?? "",
-      features: item.ItemInfo?.Features?.DisplayValues ?? [],
-      affiliateUrl: item.DetailPageURL,
-      availability: listing?.Availability?.Message ?? "Available"
+      asin: item.asin,
+      title: item.itemInfo?.title?.displayValue ?? item.asin,
+      price: listing?.price?.amount ?? 0,
+      rating: item.customerReviews?.starRating?.value ?? 0,
+      imageUrl: imgLarge || imgMed,
+      features: item.itemInfo?.features?.displayValues ?? [],
+      affiliateUrl: item.detailPageURL,
+      availability: listing?.availability?.message ?? "Available",
     };
   });
 }
@@ -158,13 +168,13 @@ export async function fetchProductByASIN(asin: string): Promise<AmazonProduct | 
   if (cached) return JSON.parse(cached) as AmazonProduct;
 
   try {
-    const results = await paApiRequest([asin]);
+    const results = await creatorsApiRequest([asin]);
     if (results.length > 0) {
       await cacheClient.setEx(key, 3600, JSON.stringify(results[0]));
       return results[0];
     }
-  } catch {
-    // PA API unavailable — caller handles manual fallback
+  } catch (err) {
+    console.error("[Amazon] fetchProductByASIN failed:", String(err));
   }
 
   return null;
@@ -173,10 +183,10 @@ export async function fetchProductByASIN(asin: string): Promise<AmazonProduct | 
 export async function fetchBatchByASINs(asins: string[]): Promise<AmazonProduct[]> {
   const status = getAmazonIntegrationStatus();
   if (!status.configured) {
-    throw new Error(`Amazon PA API is not configured. Missing: ${status.missing.join(", ")}`);
+    throw new Error(`Amazon not configured. Missing: ${status.missing.join(", ")}`);
   }
 
-  // PA API batches max 10
+  // Creators API — batch limit TBC, using 10 to be safe
   const chunks: string[][] = [];
   for (let i = 0; i < asins.length; i += 10) {
     chunks.push(asins.slice(i, i + 10));
@@ -185,13 +195,14 @@ export async function fetchBatchByASINs(asins: string[]): Promise<AmazonProduct[
   const results: AmazonProduct[] = [];
   for (const chunk of chunks) {
     try {
-      const items = await paApiRequest(chunk);
+      const items = await creatorsApiRequest(chunk);
       for (const item of items) {
         await cacheClient.setEx(`amazon:asin:${item.asin}`, 3600, JSON.stringify(item));
       }
       results.push(...items);
-    } catch {
-      // skip failed chunks, continue
+    } catch (err) {
+      console.error("[Amazon] batch chunk failed:", String(err));
+      throw err;
     }
   }
 
@@ -199,13 +210,12 @@ export async function fetchBatchByASINs(asins: string[]): Promise<AmazonProduct[
 }
 
 export async function updateProductPrice(asin: string): Promise<number | null> {
-  // Invalidate cache to force fresh fetch
-  await cacheClient.setEx(`amazon:asin:${asin}`, 1, "{}");
+  await cacheClient.del(`amazon:asin:${asin}`);
   const product = await fetchProductByASIN(asin);
   return product?.price ?? null;
 }
 
-/** Build a standard Amazon.in affiliate URL from an ASIN + partner tag */
+/** Build standard Amazon.in affiliate URL */
 export function buildAffiliateUrl(asin: string): string {
   const tag = env.amazonPartnerTag ?? "adfirststore-21";
   return `https://www.amazon.in/dp/${asin}/?tag=${tag}`;

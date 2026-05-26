@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import { API_URL } from "@/lib/api";
+import React, { FormEvent, useCallback, useEffect, useState } from "react";
+import { clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
+import { Rocket, PenLine, Package, ClipboardList, Wand2, CheckCircle2, XCircle, Loader2, Upload } from "lucide-react";
 
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
 type Product = { id: number; name: string; slug: string; price: number; rating: number };
-type Tab = "pipeline" | "manual" | "logs" | "products";
+type Tab = "pipeline" | "manual" | "import" | "logs" | "products";
 type AuthMode = "login" | "register";
 
 export function AdminClient() {
@@ -40,7 +41,7 @@ export function AdminClient() {
       return;
     }
 
-    const response = await fetch(`${API_URL}/auth/me`, {
+    const response = await fetch(clientFetchUrl("/auth/me"), {
       headers: { Authorization: `Bearer ${storedToken}` }
     });
 
@@ -70,7 +71,7 @@ export function AdminClient() {
   async function login(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetch(clientFetchUrl("/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
@@ -79,20 +80,20 @@ export function AdminClient() {
     setLoading(false);
     if (!response.ok) { setMessage(data.message ?? "Login failed"); return; }
     setToken(data.token);
-    setMessage("✅ Logged in successfully");
+    setMessage("ok:Logged in successfully");
   }
 
   const fetchLogs = useCallback(async () => {
     const key = localStorage.getItem("automation_api_key") ?? automationKey;
     if (!key) return;
-    const r = await fetch(`${API_URL}/automation/logs?limit=30`, {
+    const r = await fetch(clientFetchUrl("/automation/logs?limit=30"), {
       headers: { "x-automation-api-key": key }
     });
     if (r.ok) setLogs((await r.json()).items);
   }, [automationKey]);
 
   const fetchProducts = useCallback(async () => {
-    const r = await fetch(`${API_URL}/products?limit=50`);
+    const r = await fetch(clientFetchUrl("/products?limit=50"));
     if (r.ok) setProducts((await r.json()).items);
   }, []);
 
@@ -106,18 +107,18 @@ export function AdminClient() {
     const key = localStorage.getItem("automation_api_key") ?? automationKey;
     if (!key) { setMessage("Enter your Automation API key first"); return; }
     setLoading(true);
-    setMessage("🚀 Running pipeline...");
+    setMessage("loading:Running pipeline...");
     const asinList = asins.split(/[\n,]+/).map((a) => a.trim()).filter(Boolean);
-    const r = await fetch(`${API_URL}/automation/run-pipeline`, {
+    const r = await fetch(clientFetchUrl("/automation/run-pipeline"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-automation-api-key": key },
       body: JSON.stringify({ asins: asinList, categoryId: Number(categoryId), generateContent })
     });
     const data = await r.json();
     setLoading(false);
-    if (!r.ok) { setMessage(`❌ ${data.message ?? "Failed"}`); return; }
+    if (!r.ok) { setMessage(`err:${data.message ?? "Failed"}`); return; }
     setPipelineResults(data.results ?? []);
-    setMessage(`✅ Pipeline complete — ${asinList.length} ASINs processed`);
+    setMessage(`ok:Pipeline complete — ${asinList.length} ASINs processed`);
   }
 
   async function addManualProduct(e: FormEvent) {
@@ -125,7 +126,7 @@ export function AdminClient() {
     const key = localStorage.getItem("automation_api_key") ?? automationKey;
     if (!key) { setMessage("Enter your Automation API key first"); return; }
     setLoading(true);
-    const r = await fetch(`${API_URL}/automation/manual-add-product`, {
+    const r = await fetch(clientFetchUrl("/automation/manual-add-product"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-automation-api-key": key },
       body: JSON.stringify({
@@ -140,31 +141,32 @@ export function AdminClient() {
     });
     const data = await r.json();
     setLoading(false);
-    if (!r.ok) { setMessage(`❌ ${data.message}`); return; }
-    setMessage(`✅ Product added: ${data.product?.name}`);
+    if (!r.ok) { setMessage(`err:${data.message}`); return; }
+    setMessage(`ok:Product added: ${data.product?.name}`);
   }
 
   async function generatePost(productId: number) {
     const key = localStorage.getItem("automation_api_key") ?? automationKey;
     if (!key) { setMessage("Enter your Automation API key first"); return; }
     setLoading(true);
-    setMessage(`✍️ Generating AI content for product #${productId}...`);
-    const r = await fetch(`${API_URL}/automation/generate-post`, {
+    setMessage(`loading:Generating AI content for product #${productId}...`);
+    const r = await fetch(clientFetchUrl("/automation/generate-post"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-automation-api-key": key },
       body: JSON.stringify({ productId, type: "review" })
     });
     const data = await r.json();
     setLoading(false);
-    if (!r.ok) { setMessage(`❌ ${data.message}`); return; }
-    setMessage(`✅ Blog post created: "${data.blogPost?.title}"`);
+    if (!r.ok) { setMessage(`err:${data.message}`); return; }
+    setMessage(`ok:Blog post created: "${data.blogPost?.title}"`);
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "pipeline", label: "🚀 Pipeline" },
-    { id: "manual", label: "✏️ Manual Add" },
-    { id: "products", label: "📦 Products" },
-    { id: "logs", label: "📋 Logs" }
+  const tabs: { id: Tab; label: string; Icon: React.ElementType }[] = [
+    { id: "pipeline", label: "Pipeline",   Icon: Rocket },
+    { id: "manual",   label: "Manual Add", Icon: PenLine },
+    { id: "import",   label: "CSV Import", Icon: Upload },
+    { id: "products", label: "Products",   Icon: Package },
+    { id: "logs",     label: "Logs",       Icon: ClipboardList },
   ];
 
   if (!token) {
@@ -193,22 +195,34 @@ export function AdminClient() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-green-600 font-medium">✅ Logged in as {email}</p>
+        <p className="flex items-center gap-1.5 text-sm text-green-600 font-medium">
+        <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+        Logged in as {email}
+      </p>
         <div className="flex gap-2">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${tab === t.id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
-              {t.label}
+          {tabs.map(({ id, label, Icon }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${tab === id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
+              <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {message && (
-        <div className={`rounded-lg border p-3 text-sm ${message.startsWith("❌") ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"}`}>
-          {message}
-        </div>
-      )}
+      {message && (() => {
+        const isErr  = message.startsWith("err:");
+        const isLoad = message.startsWith("loading:");
+        const text   = message.replace(/^(err|ok|loading):/, "");
+        return (
+          <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${isErr ? "border-red-200 bg-red-50 text-red-700" : isLoad ? "border-blue-100 bg-blue-50 text-blue-700" : "border-green-200 bg-green-50 text-green-700"}`}>
+            {isErr  ? <XCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
+             : isLoad ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" strokeWidth={2} />
+             : <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2} />}
+            {text}
+          </div>
+        );
+      })()}
 
       {/* ── Pipeline Tab ── */}
       {tab === "pipeline" && (
@@ -229,8 +243,10 @@ export function AdminClient() {
               <span className="text-sm font-medium text-slate-900">Generate AI Content</span>
             </label>
           </div>
-          <button disabled={loading} className="rounded bg-blue-600 px-6 py-2 text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
-            {loading ? "Running..." : "🚀 Run Pipeline"}
+          <button disabled={loading} className="inline-flex items-center gap-2 rounded bg-blue-600 px-6 py-2 text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
+            {loading
+              ? <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />Running...</>
+              : <><Rocket className="h-4 w-4" strokeWidth={2} />Run Pipeline</>}
           </button>
 
           {pipelineResults.length > 0 && (
@@ -268,10 +284,71 @@ export function AdminClient() {
           </div>
           <div><label className="text-sm font-medium">Affiliate URL (optional — auto-generated if blank)</label><input className="mt-1 w-full rounded border border-slate-300 p-2 text-sm" placeholder="https://amazon.in/dp/..." value={manual.affiliateUrl} onChange={(e) => setManual({ ...manual, affiliateUrl: e.target.value })} /></div>
           <div><label className="text-sm font-medium">Description</label><textarea rows={3} className="mt-1 w-full rounded border border-slate-300 p-2 text-sm" value={manual.description} onChange={(e) => setManual({ ...manual, description: e.target.value })} /></div>
-          <button disabled={loading} className="rounded bg-blue-600 px-6 py-2 text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
-            {loading ? "Saving..." : "✏️ Add Product"}
+          <button disabled={loading} className="inline-flex items-center gap-2 rounded bg-blue-600 px-6 py-2 text-white font-semibold hover:bg-blue-700 disabled:opacity-50">
+            {loading
+              ? <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />Saving...</>
+              : <><PenLine className="h-4 w-4" strokeWidth={2} />Add Product</>}
           </button>
         </form>
+      )}
+
+      {/* ── CSV Import Tab ── */}
+      {tab === "import" && (
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-5 text-slate-900">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">CSV Bulk Import</h2>
+            <p className="text-sm text-slate-500 mt-1">Upload a CSV to create multiple products at once. No PA API needed.</p>
+          </div>
+
+          {/* Template */}
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Required CSV format</p>
+            <code className="text-xs text-slate-700 block whitespace-pre">
+{`asin,name,price,rating,imageUrl,categoryId,description,affiliateUrl
+B09C3MKLF7,Samsung Galaxy Buds2,4999,4.2,https://m.media-amazon.com/images/I/61CGHv6kmWL._SL500_.jpg,1,Great wireless earbuds,
+B07MSSHP5J,boAt Rockerz 450,1299,4.1,https://m.media-amazon.com/images/I/71Swqqe7XAL._SL500_.jpg,1,,`}
+            </code>
+            <p className="text-xs text-slate-400 mt-2">affiliateUrl column is optional — auto-generated from ASIN if blank.</p>
+          </div>
+
+          {/* Upload form */}
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const input = (e.currentTarget.elements.namedItem("csvfile") as HTMLInputElement);
+            const file = input?.files?.[0];
+            if (!file) { setMessage("err:Select a CSV file first"); return; }
+            const key = localStorage.getItem("automation_api_key") ?? "";
+            if (!key) { setMessage("err:Enter Automation API key first"); return; }
+            setLoading(true);
+            setMessage("loading:Importing...");
+            const fd = new FormData();
+            fd.append("file", file);
+            const r = await fetch(clientFetchUrl("/automation/bulk-import"), {
+              method: "POST",
+              headers: { "x-automation-api-key": key },
+              body: fd,
+            });
+            const data = await r.json() as { created: number; failed: number; skipped: number; results: Array<{ row: number; asin: string; status: string; error?: string }> };
+            setLoading(false);
+            if (!r.ok) { setMessage(`err:${(data as { message?: string }).message ?? "Import failed"}`); return; }
+            setMessage(`ok:Imported ${data.created} products (${data.failed} failed, ${data.skipped} skipped)`);
+            if (data.results.some(r => r.status === "failed")) {
+              console.table(data.results.filter(r => r.status === "failed"));
+            }
+          }} className="space-y-3">
+            <input
+              name="csvfile"
+              type="file"
+              accept=".csv,text/csv"
+              className="block w-full text-sm text-slate-700 file:mr-4 file:rounded file:border-0 file:bg-[#FF9900] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:bg-[#e68a00]"
+            />
+            <button disabled={loading} className="inline-flex items-center gap-2 rounded bg-[#FF9900] px-6 py-2 text-sm font-bold text-black hover:bg-[#e68a00] disabled:opacity-50">
+              {loading
+                ? <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />Importing...</>
+                : <><Upload className="h-4 w-4" strokeWidth={2} />Import Products</>}
+            </button>
+          </form>
+        </div>
       )}
 
       {/* ── Products Tab ── */}
@@ -291,8 +368,8 @@ export function AdminClient() {
                     <td className="border p-2 text-center">₹{Number(p.price).toFixed(0)}</td>
                     <td className="border p-2 text-center">{Number(p.rating).toFixed(1)}</td>
                     <td className="border p-2 text-center">
-                      <button onClick={() => void generatePost(p.id)} disabled={loading} className="rounded bg-purple-600 px-3 py-1 text-xs text-white hover:bg-purple-700 disabled:opacity-50">
-                        ✍️ Gen Post
+                      <button onClick={() => void generatePost(p.id)} disabled={loading} className="inline-flex items-center gap-1 rounded bg-purple-600 px-3 py-1 text-xs text-white hover:bg-purple-700 disabled:opacity-50">
+                        <Wand2 className="h-3 w-3" strokeWidth={2} />Gen Post
                       </button>
                     </td>
                   </tr>

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../lib/db.js";
@@ -6,6 +7,7 @@ import * as schema from "../db/schema.js";
 import { requireAutomationApiKey } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { fetchBatchByASINs, buildAffiliateUrl, getAmazonIntegrationStatus } from "../services/amazon.service.js";
+import { cacheClient } from "../lib/redis.js";
 import {
   generateProductReview,
   generateRoundupPost,
@@ -29,8 +31,23 @@ export const automationRouter = Router();
 automationRouter.use(requireAutomationApiKey);
 
 async function logAuto(event: string, status: string, payload: unknown, message?: string) {
-  await db.insert(schema.automationLogs).values({ event, status, payload: payload as object, message: message ?? null });
+  try {
+    const msg = message ? message.substring(0, 190) : null;
+    await db.insert(schema.automationLogs).values({ event, status, payload: payload as object, message: msg });
+  } catch (logErr) {
+    console.error("[logAuto] Failed to write log:", String(logErr));
+  }
 }
+
+// ─── Amazon PA API Debug ──────────────────────────────────────────────────────
+automationRouter.get("/test-amazon", async (_req, res) => {
+  try {
+    const items = await fetchBatchByASINs(["B09TWCHY96"]);
+    res.json({ ok: true, fetched: items.length, items });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error) });
+  }
+});
 
 automationRouter.get("/status", async (_req, res) => {
   const [latestLog] = await db.select().from(schema.automationLogs).orderBy(sql`createdAt DESC`).limit(1);
@@ -70,7 +87,7 @@ automationRouter.post("/manual-add-product", validateBody(z.object({
     const slug = toSlug(name);
 
     await db.insert(schema.products)
-      .values({ name, slug, amazonAsin: asin, price: String(price), rating, imageUrl, categoryId, description, pros, cons, affiliateUrl: url, lastUpdated: new Date() })
+      .values({ name, slug, amazonAsin: asin, price: String(price), rating, imageUrl, categoryId, description, pros, cons, affiliateUrl: url, lastUpdated: new Date(), createdAt: new Date(), updatedAt: new Date() })
       .onDuplicateKeyUpdate({ set: { price: String(price), rating, imageUrl, affiliateUrl: url, lastUpdated: new Date() } });
 
     const [product] = await db.select().from(schema.products).where(eq(schema.products.amazonAsin, asin)).limit(1);
@@ -98,7 +115,7 @@ automationRouter.post("/add-products", validateBody(z.object({
       const item = items.find((i) => i.asin === asin);
       const name = item?.title ?? `Product ${asin}`;
       await db.insert(schema.products)
-        .values({ name, slug: toSlug(name), amazonAsin: asin, price: String(item?.price ?? 0), rating: item?.rating ?? 4.0, imageUrl: item?.imageUrl ?? "", categoryId, description: defaultDescription, pros: ["Good value"], cons: ["Check reviews"], affiliateUrl: item?.affiliateUrl ?? buildAffiliateUrl(asin), lastUpdated: new Date() })
+        .values({ name, slug: toSlug(name), amazonAsin: asin, price: String(item?.price ?? 0), rating: item?.rating ?? 4.0, imageUrl: item?.imageUrl ?? "", categoryId, description: defaultDescription, pros: ["Good value"], cons: ["Check reviews"], affiliateUrl: item?.affiliateUrl ?? buildAffiliateUrl(asin), lastUpdated: new Date(), createdAt: new Date(), updatedAt: new Date() })
         .onDuplicateKeyUpdate({ set: { price: String(item?.price ?? 0), rating: item?.rating ?? 4.0, lastUpdated: new Date() } });
       const [p] = await db.select().from(schema.products).where(eq(schema.products.amazonAsin, asin)).limit(1);
       if (p) createdIds.push(p.id);
@@ -143,11 +160,39 @@ automationRouter.post("/generate-post", validateBody(z.object({
       });
     }
 
+    // Inject product images into the generated HTML at key points
+    if (product.imageUrl) {
+      const imgHtml = (alt: string, caption: string) =>
+        `<figure class="blog-product-image">` +
+        `<img src="${product.imageUrl}" alt="${alt}" referrerpolicy="no-referrer" loading="lazy">` +
+        `<figcaption>${caption}</figcaption></figure>`;
+
+      // Hero image: after the very first </h2> (end of Introduction heading)
+      generated.content = generated.content.replace(
+        /(<\/h2>)/,
+        `$1${imgHtml(product.name, product.name)}`
+      );
+
+      // Mid-article image: before "Our Verdict" or "Final" section
+      generated.content = generated.content.replace(
+        /(<h2[^>]*>[^<]*(?:verdict|final|recommend|conclusion)[^<]*<\/h2>)/i,
+        `${imgHtml(`${product.name} — bottom line`, "Final look")}\n$1`
+      );
+    }
+
     await db.insert(schema.blogPosts)
-      .values({ title: generated.title, slug: generated.slug, content: generated.content, excerpt: generated.seoDescription, seoTitle: generated.seoTitle, seoDescription: generated.seoDescription, categoryId: product.categoryId, status: "published" })
+      .values({ title: generated.title, slug: generated.slug, content: generated.content, excerpt: generated.seoDescription, seoTitle: generated.seoTitle, seoDescription: generated.seoDescription, categoryId: product.categoryId, status: "published", createdAt: new Date(), updatedAt: new Date() })
       .onDuplicateKeyUpdate({ set: { title: generated.title, content: generated.content, status: "published" } });
 
     const [blogPost] = await db.select().from(schema.blogPosts).where(eq(schema.blogPosts.slug, generated.slug)).limit(1);
+
+    // Bust product + blog API caches so next page load fetches fresh
+    await Promise.allSettled([
+      cacheClient.del(`product:/products/${product.slug}`),
+      cacheClient.del(`products:/products`),
+      cacheClient.del(`gemini:review:${product.name}`)
+    ]);
+
     await logAuto("generate-post", "success", { productId, blogPostId: blogPost?.id });
     res.json({ blogPost });
   } catch (error) {
@@ -175,7 +220,7 @@ automationRouter.post("/run-pipeline", validateBody(z.object({
         const name = item?.title ?? `Product ${asin}`;
 
         await db.insert(schema.products)
-          .values({ name, slug: toSlug(name), amazonAsin: asin, price: String(item?.price ?? 0), rating: item?.rating ?? 4.0, imageUrl: item?.imageUrl ?? "", categoryId, description: `${name} — available on Amazon India.`, pros: item?.features?.slice(0, 3) ?? ["Great value"], cons: ["Check reviews"], affiliateUrl: item?.affiliateUrl ?? buildAffiliateUrl(asin), lastUpdated: new Date() })
+          .values({ name, slug: toSlug(name), amazonAsin: asin, price: String(item?.price ?? 0), rating: item?.rating ?? 4.0, imageUrl: item?.imageUrl ?? "", categoryId, description: `${name} — available on Amazon India.`, pros: item?.features?.slice(0, 3) ?? ["Great value"], cons: ["Check reviews"], affiliateUrl: item?.affiliateUrl ?? buildAffiliateUrl(asin), lastUpdated: new Date(), createdAt: new Date(), updatedAt: new Date() })
           .onDuplicateKeyUpdate({ set: { price: String(item?.price ?? 0), rating: item?.rating ?? 4.0, lastUpdated: new Date() } });
 
         const [product] = await db.select().from(schema.products).where(eq(schema.products.amazonAsin, asin)).limit(1);
@@ -190,7 +235,7 @@ automationRouter.post("/run-pipeline", validateBody(z.object({
             pros: parseJsonArray(product.pros), cons: parseJsonArray(product.cons), affiliateUrl: product.affiliateUrl
           });
           await db.insert(schema.blogPosts)
-            .values({ title: generated.title, slug: generated.slug, content: generated.content, excerpt: generated.seoDescription, seoTitle: generated.seoTitle, seoDescription: generated.seoDescription, categoryId, status: "published" })
+            .values({ title: generated.title, slug: generated.slug, content: generated.content, excerpt: generated.seoDescription, seoTitle: generated.seoTitle, seoDescription: generated.seoDescription, categoryId, status: "published", createdAt: new Date(), updatedAt: new Date() })
             .onDuplicateKeyUpdate({ set: { content: generated.content, status: "published" } });
           const [bp] = await db.select().from(schema.blogPosts).where(eq(schema.blogPosts.slug, generated.slug)).limit(1);
           blogPostId = bp?.id;
@@ -212,15 +257,7 @@ automationRouter.post("/run-pipeline", validateBody(z.object({
 
 automationRouter.post("/update-prices", async (_req, res) => {
   try {
-    const amazon = getAmazonIntegrationStatus();
-    if (!amazon.configured) {
-      res.status(400).json({
-        message: "Price update cannot run because Amazon PA API is not configured",
-        missing: amazon.missing
-      });
-      return;
-    }
-
+    // Scraper-based — no Amazon PA API key required
     const result = await runPriceUpdateJob();
     await logAuto("update-prices", "success", result);
     res.json(result);
@@ -228,6 +265,120 @@ automationRouter.post("/update-prices", async (_req, res) => {
     await logAuto("update-prices", "failed", {}, String(error));
     res.status(500).json({ message: "Price update failed", error: String(error) });
   }
+});
+
+// ─── CSV Bulk Import ──────────────────────────────────────────────────────────
+// CSV columns (header row required):
+// asin,name,price,rating,imageUrl,categoryId,description,affiliateUrl
+//
+// affiliateUrl is optional — auto-built from ASIN + partner tag if blank.
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+
+automationRouter.post("/bulk-import", upload.single("file"), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ message: "No file uploaded. Send multipart/form-data with field 'file'." });
+    return;
+  }
+
+  const csv = req.file.buffer.toString("utf-8");
+  const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    res.status(400).json({ message: "CSV must have a header row and at least one data row." });
+    return;
+  }
+
+  const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
+
+  // Load all categories once for name→id resolution
+  const allCats = await db.select().from(schema.categories);
+  const defaultCatId = allCats[0]?.id ?? 6;
+
+  const resolveCatId = (row: Record<string, string>): number => {
+    const numId = parseInt(row["categoryid"] || row["category_id"] || "0", 10);
+    if (numId > 0) return numId;
+    const catName = (row["category"] || "").toLowerCase().trim();
+    if (!catName) return defaultCatId;
+    // Exact match first, then partial
+    const exact = allCats.find(c => c.name.toLowerCase() === catName);
+    if (exact) return exact.id;
+    const partial = allCats.find(c =>
+      c.name.toLowerCase().includes(catName) || catName.includes(c.name.toLowerCase())
+    );
+    return partial?.id ?? defaultCatId;
+  };
+
+  const results: Array<{ row: number; asin: string; status: string; error?: string }> = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    // Handle quoted fields with commas
+    const cols: string[] = [];
+    let cur = "";
+    let inQ = false;
+    for (const ch of lines[i]) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === "," && !inQ) { cols.push(cur.trim()); cur = ""; }
+      else cur += ch;
+    }
+    cols.push(cur.trim());
+
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => { row[h] = (cols[idx] ?? "").replace(/^"|"$/g, "").trim(); });
+
+    const asin = row["asin"] || "";
+    const name = row["name"] || "";
+
+    if (!asin || !name) {
+      results.push({ row: i + 1, asin, status: "skipped", error: "Missing asin or name" });
+      continue;
+    }
+
+    try {
+      const price     = parseFloat(row["price"] || "0") || 0;
+      const rating    = Math.min(5, Math.max(0, parseFloat(row["rating"] || "0") || 0));
+      const imageUrl  = row["imageurl"] || row["image_url"] || "";
+      const catId     = resolveCatId(row);
+      const desc      = row["description"] || "";
+      const affUrl    = row["affiliateurl"] || row["affiliate_url"] || buildAffiliateUrl(asin);
+      const safeName  = name.slice(0, 185);
+      const slug      = toSlug(safeName).slice(0, 185);
+
+      const now = new Date();
+      await db.insert(schema.products).values({
+        amazonAsin: asin, name: safeName, slug, price: String(price), rating,
+        imageUrl, categoryId: catId,
+        description: desc,
+        affiliateUrl: affUrl,
+        pros: JSON.stringify([]),
+        cons: JSON.stringify([]),
+        lastUpdated: now, createdAt: now, updatedAt: now,
+      }).onDuplicateKeyUpdate({
+        set: {
+          name: safeName,
+          slug,
+          price: String(price),
+          rating,
+          imageUrl,
+          categoryId: catId,
+          affiliateUrl: affUrl,
+          description: desc,
+          lastUpdated: now,
+        }
+      });
+
+      results.push({ row: i + 1, asin, status: "created" });
+      await cacheClient.del(`products:/products`, `products:/products?limit=100`);
+    } catch (err) {
+      const errStr = String(err);
+      results.push({ row: i + 1, asin, status: "failed", error: errStr.substring(0, 120) });
+    }
+  }
+
+  const created = results.filter(r => r.status === "created").length;
+  const failed  = results.filter(r => r.status === "failed").length;
+  await logAuto("bulk-import", failed === 0 ? "success" : "partial", { total: results.length, created, failed });
+
+  res.json({ upserted: created, failed, total: results.length, results });
 });
 
 // ─── Logs ─────────────────────────────────────────────────────────────────────

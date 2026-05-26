@@ -46,5 +46,13 @@ export const cacheClient = {
       value,
       expiresAt: Date.now() + ttlSeconds * 1000
     });
+  },
+
+  async del(...keys: string[]): Promise<void> {
+    if (redis) {
+      await redis.del(...keys);
+      return;
+    }
+    for (const key of keys) fallbackCache.delete(key);
   }
 };

@@ -7,7 +7,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 /** Fallback order: Gemini → Anthropic → OpenAI (only providers with keys are tried). */
-const ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
 const OPENAI_MODEL = "gpt-4o-mini";
 
 export function getGeminiIntegrationStatus() {
@@ -120,12 +120,21 @@ async function callOpenAI(prompt: string): Promise<string> {
   return data.choices[0]?.message?.content ?? "";
 }
 
+/** Strip markdown code fences that LLMs sometimes wrap HTML in despite instructions. */
+function stripCodeFences(text: string): string {
+  return text
+    .replace(/^```(?:html|markdown|xml|)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+}
+
 async function generateLlmText(prompt: string): Promise<string> {
   const attempts: string[] = [];
 
   const run = async (label: string, fn: () => Promise<string>): Promise<string | null> => {
     try {
-      const text = (await fn()).trim();
+      const raw = (await fn()).trim();
+      const text = stripCodeFences(raw);
       if (text) return text;
       attempts.push(`${label}: empty response`);
     } catch (e) {

@@ -10,9 +10,10 @@ export const metadata = buildMetadata({
 export default function AdminPage() {
   return (
     <section className="space-y-8">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.06] p-8 backdrop-blur-xl">
-        <h1 className="text-3xl font-semibold text-white">Admin Dashboard</h1>
-        <p className="mt-3 text-white/62">Manage products, categories, and automation jobs with clearer visual hierarchy and operational context.</p>
+      <div className="rounded-xl border border-white/[0.07] bg-[#16161e] p-7">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#FF9900]">Control Panel</span>
+        <h1 className="mt-1 text-2xl font-bold text-white">Admin Dashboard</h1>
+        <p className="mt-1.5 text-[14px] text-white/45">Manage products, categories, and automation jobs.</p>
       </div>
       <div className="mt-6">
         <AdminDashboard />

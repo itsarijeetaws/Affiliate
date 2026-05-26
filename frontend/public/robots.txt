@@ -1,0 +1,33 @@
+User-agent: *
+Allow: /
+Allow: /products
+Allow: /categories
+Allow: /blog
+Allow: /compare
+Allow: /search
+Allow: /guides
+Allow: /top
+
+Disallow: /admin
+Disallow: /account
+Disallow: /api/
+Disallow: /_next/
+Disallow: /.well-known/
+Disallow: /private/
+
+Sitemap: https://whitesmoke-lapwing-348992.hostingersite.com/sitemap.xml
+Sitemap: http://localhost:3002/sitemap.xml
+
+# Crawler delays
+Crawl-delay: 1
+Request-rate: 10/1s
+
+# Google specific
+User-agent: Googlebot
+Crawl-delay: 0
+Request-rate: 50/1s
+
+# Bing specific
+User-agent: Bingbot
+Crawl-delay: 1
+Request-rate: 20/1s

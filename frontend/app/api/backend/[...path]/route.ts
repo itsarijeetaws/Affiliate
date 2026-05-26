@@ -14,8 +14,10 @@ function backendOrigin(): string {
   return `http://127.0.0.1:${port}`;
 }
 
+const ALLOWED_PREFIXES = ["/auth", "/automation", "/products", "/categories", "/api/blog", "/comparisons", "/analytics", "/go"];
+
 function allowBackendPath(path: string): boolean {
-  return path === "/auth" || path.startsWith("/auth/");
+  return ALLOWED_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + "/"));
 }
 
 async function proxy(req: NextRequest, segments: string[]): Promise<NextResponse> {
@@ -30,6 +32,8 @@ async function proxy(req: NextRequest, segments: string[]): Promise<NextResponse
   if (contentType) headers.set("content-type", contentType);
   const authorization = req.headers.get("authorization");
   if (authorization) headers.set("authorization", authorization);
+  const automationKey = req.headers.get("x-automation-api-key");
+  if (automationKey) headers.set("x-automation-api-key", automationKey);
 
   let body: string | undefined;
   if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
@@ -68,6 +72,21 @@ export async function GET(req: NextRequest, ctx: RouteCtx) {
 }
 
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+}
+
+export async function PUT(req: NextRequest, ctx: RouteCtx) {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+}
+
+export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+}
+
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
   const { path } = await ctx.params;
   return proxy(req, path);
 }

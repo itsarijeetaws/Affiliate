@@ -62,11 +62,14 @@ authRouter.post("/register", validateBody(registerSchema), async (req, res) => {
   }
 
   const isAdmin = isAdminEmail(email);
+  const now = new Date();
   await db.insert(schema.users).values({
     email,
     name,
     passwordHash: hashPassword(password),
-    isAdmin
+    isAdmin,
+    createdAt: now,
+    updatedAt: now
   });
 
   const [createdUser] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
@@ -110,11 +113,14 @@ authRouter.post("/login", validateBody(loginSchema), async (req, res) => {
   let [user] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
 
   if (!user && isAdminEmail(email) && password === env.adminPassword) {
+    const now = new Date();
     await db.insert(schema.users).values({
       email,
       name: "Admin",
       passwordHash: hashPassword(password),
-      isAdmin: true
+      isAdmin: true,
+      createdAt: now,
+      updatedAt: now
     });
     [user] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
   }
@@ -148,6 +154,90 @@ authRouter.post("/login", validateBody(loginSchema), async (req, res) => {
       isAdmin: user.isAdmin
     }
   });
+});
+
+// ─── Helper: extract authenticated user ID from Bearer token ─────────────────
+
+function requireAuth(req: import("express").Request, res: import("express").Response): number | null {
+  const auth = req.header("authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    res.status(401).json({ message: "Missing bearer token" });
+    return null;
+  }
+  try {
+    const payload = jwt.verify(auth.replace("Bearer ", "").trim(), env.jwtSecret);
+    if (typeof payload === "string" || typeof payload.id !== "number") {
+      res.status(401).json({ message: "Invalid token" });
+      return null;
+    }
+    return payload.id;
+  } catch {
+    res.status(401).json({ message: "Invalid or expired token" });
+    return null;
+  }
+}
+
+// ─── PATCH /auth/profile ─────────────────────────────────────────────────────
+
+const profileSchema = z.object({
+  name:      z.string().trim().min(1).max(120).optional(),
+  bio:       z.string().trim().max(300).optional(),
+  avatarUrl: z.string().url().max(500).optional().or(z.literal("")),
+});
+
+authRouter.patch("/profile", validateBody(profileSchema), async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { name, bio, avatarUrl } = req.body as z.infer<typeof profileSchema>;
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (name      !== undefined) updates.name      = name;
+  if (bio       !== undefined) updates.bio       = bio || null;
+  if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl || null;
+
+  await db.update(schema.users).set(updates).where(eq(schema.users.id, userId));
+
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      bio: user.bio,
+      avatarUrl: user.avatarUrl,
+      isAdmin: user.isAdmin,
+    }
+  });
+});
+
+// ─── POST /auth/change-password ───────────────────────────────────────────────
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword:     z.string().min(8),
+});
+
+authRouter.post("/change-password", validateBody(changePasswordSchema), async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  const { currentPassword, newPassword } = req.body as z.infer<typeof changePasswordSchema>;
+
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ message: "User not found" }); return; }
+
+  if (!verifyPassword(currentPassword, user.passwordHash)) {
+    res.status(400).json({ message: "Current password is incorrect" });
+    return;
+  }
+
+  await db.update(schema.users)
+    .set({ passwordHash: hashPassword(newPassword), updatedAt: new Date() })
+    .where(eq(schema.users.id, userId));
+
+  res.json({ message: "Password changed successfully" });
 });
 
 authRouter.get("/me", async (req, res) => {
@@ -189,6 +279,8 @@ authRouter.get("/me", async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        bio: user.bio ?? null,
+        avatarUrl: user.avatarUrl ?? null,
         isAdmin
       }
     });

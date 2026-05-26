@@ -15,6 +15,8 @@ export const users = mysqlTable("User", {
   id: int("id").primaryKey().autoincrement(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }),
+  bio: varchar("bio", { length: 300 }),
+  avatarUrl: varchar("avatarUrl", { length: 500 }),
   passwordHash: text("passwordHash").notNull(),
   isAdmin: boolean("isAdmin").notNull().default(false),
   createdAt: timestamp("createdAt").notNull().defaultNow(),

@@ -32,6 +32,10 @@ export const env = {
   wordpressBaseUrl: process.env.WORDPRESS_BASE_URL,
   wordpressUsername: process.env.WORDPRESS_USERNAME,
   wordpressAppPassword: process.env.WORDPRESS_APP_PASSWORD,
+  // Creators API (OAuth2) — preferred
+  amazonClientId: process.env.AMAZON_CLIENT_ID,
+  amazonClientSecret: process.env.AMAZON_CLIENT_SECRET,
+  // Legacy PA API keys — kept for fallback / backwards compat
   amazonAccessKey: process.env.AMAZON_ACCESS_KEY,
   amazonSecretKey: process.env.AMAZON_SECRET_KEY,
   amazonPartnerTag: process.env.AMAZON_PARTNER_TAG ?? process.env.AMAZON_MARKETPLACE_ID,

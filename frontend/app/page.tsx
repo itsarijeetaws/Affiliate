@@ -1,10 +1,20 @@
+import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
+import { HeroBanner } from "@/components/HeroBanner";
+import { CategoryCarousel } from "@/components/CategoryCarousel";
 import { buildMetadata } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
+import {
+  Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
+  Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor,
+  ShoppingCart, TrendingDown, ShieldCheck, RefreshCw, BadgeCheck,
+  Bell, ArrowRight, Sparkles
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export const metadata = buildMetadata({
-  title: "Best Amazon Product Reviews & Comparisons",
-  description: "Explore top-rated products, real pros/cons, and comparison tables."
+  title: "BestBuysIndia — Trusted Amazon Product Reviews & Comparisons",
+  description: "Expert reviews, live Amazon pricing, and honest comparisons for Indian shoppers."
 });
 
 type Product = {
@@ -14,100 +24,231 @@ type Product = {
   imageUrl: string;
   price: number;
   rating: number;
+  amazonAsin?: string;
 };
+type Category = { id: number; name: string; slug: string; description?: string | null };
 
 export const dynamic = "force-dynamic";
 
+// ── Category icon map ────────────────────────────────────────
+const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string; bg: string }> = {
+  electronics:             { Icon: Zap,             color: "#3b82f6", bg: "rgba(59,130,246,0.1)" },
+  smartphones:             { Icon: Smartphone,      color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+  laptops:                 { Icon: Laptop,          color: "#06b6d4", bg: "rgba(6,182,212,0.1)" },
+  "home-audio":            { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
+  headphones:              { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
+  "kitchen-appliances":    { Icon: Home,            color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  fitness:                 { Icon: Dumbbell,        color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  gaming:                  { Icon: Gamepad2,        color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
+  smartwatches:            { Icon: Watch,           color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+  "power-banks":           { Icon: BatteryCharging, color: "#14b8a6", bg: "rgba(20,184,166,0.1)" },
+  grooming:                { Icon: Scissors,        color: "#d97706", bg: "rgba(217,119,6,0.1)" },
+  cameras:                 { Icon: Camera,          color: "#64748b", bg: "rgba(100,116,139,0.1)" },
+  monitors:                { Icon: Monitor,         color: "#7c3aed", bg: "rgba(124,58,237,0.1)" },
+};
+function getIcon(slug: string) {
+  return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900", bg: "rgba(255,153,0,0.1)" };
+}
+
+// ── Trust bar ────────────────────────────────────────────────
+const TRUST = [
+  { Icon: TrendingDown, title: "Live Pricing",   desc: "Real-time Amazon India prices",  color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  { Icon: ShieldCheck,  title: "Honest Reviews", desc: "Pros, cons, specs — no fluff",   color: "#3b82f6", bg: "rgba(59,130,246,0.1)" },
+  { Icon: RefreshCw,    title: "Daily Updates",  desc: "Prices refreshed automatically", color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+  { Icon: BadgeCheck,   title: "Verified Deals", desc: "Amazon India verified only",     color: "#FF9900", bg: "rgba(255,153,0,0.1)" },
+];
+
+// ── Carousels to show ────────────────────────────────────────
+const CAROUSEL_CONFIGS = [
+  { slug: "smartphones",   label: "Best Sellers in Smartphones",   accent: "#a78bfa", badge: "Hot" },
+  { slug: "laptops",       label: "Top Laptops",                   accent: "#38bdf8", badge: "Popular" },
+  { slug: "headphones",    label: "Best Headphones & Earbuds",     accent: "#f472b6", badge: "" },
+  { slug: "gaming",        label: "Gaming Bestsellers",            accent: "#f87171", badge: "Trending" },
+  { slug: "smartwatches",  label: "Top Smartwatches",              accent: "#34d399", badge: "" },
+] as const;
+
 export default async function HomePage() {
-  let data: { items: Product[] } = { items: [] };
+  let products: Product[] = [];
+  let categories: Category[] = [];
+  let totalProducts = 0;
+  let totalCategories = 0;
+
   try {
-    data = await apiFetch<{ items: Product[] }>("/products?limit=12");
-  } catch {
-    // Keep homepage renderable even if API is temporarily unreachable.
-    data = { items: [] };
+    const data = await apiFetch<{ items: Product[]; pagination: { total: number } }>("/products?limit=12");
+    products = data.items;
+    totalProducts = data.pagination?.total ?? products.length;
+  } catch { /* empty */ }
+
+  try {
+    const raw = await apiFetch<Category[]>("/categories");
+    totalCategories = raw.length;
+    categories = raw.slice(0, 8);
+  } catch { /* skip */ }
+
+  // Fetch carousel products in parallel
+  const carouselResults = await Promise.allSettled(
+    CAROUSEL_CONFIGS.map(cat =>
+      apiFetch<{ items: Product[] }>(`/products?categorySlug=${cat.slug}&limit=12`)
+        .then(d => ({ slug: cat.slug, items: d.items ?? [] }))
+        .catch(() => ({ slug: cat.slug, items: [] }))
+    )
+  );
+
+  const carouselMap: Record<string, Product[]> = {};
+  for (const r of carouselResults) {
+    if (r.status === "fulfilled") {
+      carouselMap[r.value.slug] = r.value.items;
+    }
   }
-  const featured = data.items.slice(0, 3);
+
+  // Build topImages map for hero banner (first image per carousel category)
+  const topImages: Record<string, string> = {};
+  for (const slug of ["smartphones", "laptops", "headphones", "gaming"] as const) {
+    const img = carouselMap[slug]?.[0]?.imageUrl;
+    if (img) topImages[slug] = img;
+  }
+
+  const featuredProducts = products.slice(0, 12);
 
   return (
-    <section className="space-y-12">
-      <div className="hero-panel overflow-hidden rounded-[36px] border border-white/10 p-8 sm:p-12">
-        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-          <div className="space-y-6">
-            <span className="inline-flex rounded-full border border-amber-300/30 bg-amber-300/12 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-amber-100">
-              Premium buying guides
+    <div className="space-y-10">
+
+      {/* ── Hero Banner Carousel ── */}
+      <HeroBanner topImages={topImages} />
+
+      {/* ── Trust signals ── */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {TRUST.map(({ Icon, title, desc, color, bg }) => (
+          <div
+            key={title}
+            className="flex items-start gap-3 rounded-2xl border border-gray-200/70 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/[0.06] dark:bg-[#16161e] dark:hover:border-white/[0.1]"
+          >
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: bg }}>
+              <Icon className="h-4 w-4" style={{ color }} strokeWidth={2} />
             </span>
-            <div className="space-y-4">
-              <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-white sm:text-5xl">
-                Modern Amazon affiliate reviews with sharper design and clearer buying decisions.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-white/68 sm:text-lg">
-                We surface live product snapshots, value-focused recommendations, and polished comparison pages built for trust instead of clutter.
-              </p>
+            <div>
+              <p className="text-[13px] font-semibold text-gray-800 dark:text-white/88">{title}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500 dark:text-white/38">{desc}</p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <a href="#top-picks" className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200">
-                Explore top picks
-              </a>
-              <a href="/compare" className="rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-                Open comparison desk
-              </a>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-            {featured.map((product, index) => (
-              <div key={product.id} className="rounded-[24px] border border-white/10 bg-white/[0.08] p-5 backdrop-blur-xl">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/45">Featured {index + 1}</p>
-                <h2 className="mt-3 text-lg font-semibold text-white">{product.name}</h2>
-                <div className="mt-4 flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-xs text-white/45">Current price</p>
-                    <p className="text-xl font-bold text-amber-200">Rs. {Number(product.price).toFixed(0)}</p>
-                  </div>
-                  <p className="text-sm text-white/65">{Number(product.rating).toFixed(1)} / 5</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          ["Fresh automation", "Amazon-linked product ingestion with admin controls and manual fallback."],
-          ["Sharper trust cues", "Clear ratings, prices, disclosures, and comparison-oriented product layouts."],
-          ["Faster discovery", "Search, category filtering, and more intentional content entry points."]
-        ].map(([title, description]) => (
-          <div key={title} className="rounded-[28px] border border-white/10 bg-white/[0.06] p-6 backdrop-blur-xl">
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
-            <p className="mt-3 text-sm leading-6 text-white/62">{description}</p>
           </div>
         ))}
-      </div>
+      </section>
 
-      <div id="top-picks">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      {/* ── Shop by Category ── */}
+      {categories.length > 0 && (
+        <section>
+          <div className="section-head">
+            <h2 className="section-title text-gray-900 dark:text-white">Shop by Category</h2>
+            <Link href="/search" className="section-link">
+              View all <ArrowRight className="inline h-3.5 w-3.5" strokeWidth={2.5} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4">
+            {categories.map((cat) => {
+              const { Icon, color, bg } = getIcon(cat.slug);
+              return (
+                <Link
+                  key={cat.id}
+                  href={`/category/${cat.slug}`}
+                  className="group flex items-center gap-3 rounded-2xl border border-gray-200/70 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md dark:border-white/[0.07] dark:bg-[#16161e] dark:hover:border-white/[0.14] dark:hover:bg-[#1c1c28]"
+                >
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-110"
+                    style={{ background: bg }}
+                  >
+                    <Icon className="h-5 w-5 transition-colors" style={{ color }} strokeWidth={1.75} />
+                  </span>
+                  <span className="text-[13px] font-semibold leading-snug text-gray-700 group-hover:text-gray-900 dark:text-white/78 dark:group-hover:text-white">
+                    {cat.name}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ── Category Carousels (Amazon-style horizontal rows) ── */}
+      {CAROUSEL_CONFIGS.map(cfg => {
+        const items = carouselMap[cfg.slug] ?? [];
+        if (!items.length) return null;
+        return (
+          <CategoryCarousel
+            key={cfg.slug}
+            title={cfg.label}
+            categorySlug={cfg.slug}
+            products={items}
+            accent={cfg.accent}
+            badgeLabel={cfg.badge || undefined}
+          />
+        );
+      })}
+
+      {/* ── Latest Reviews grid ── */}
+      <section>
+        <div className="section-head">
           <div>
-            <h2 className="text-3xl font-semibold text-white">Top Picks This Week</h2>
-            <p className="mt-2 text-white/62">Freshly updated product pages and pricing snapshots for Indian buyers.</p>
+            <h2 className="section-title text-gray-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#FF9900]" strokeWidth={2} />
+              Latest Reviews
+            </h2>
+            <p className="mt-0.5 text-[12.5px] text-gray-400 dark:text-white/30">
+              Freshly reviewed — live Amazon India pricing
+            </p>
           </div>
-          <a href="/search" className="text-sm font-semibold text-amber-200 transition hover:text-amber-100">
-            Search the catalog
-          </a>
+          <Link href="/search" className="section-link">
+            Browse all <ArrowRight className="inline h-3.5 w-3.5" strokeWidth={2.5} />
+          </Link>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {data.items.map((product) => (
-          <ProductCard key={product.id} {...product} />
-        ))}
-      </div>
-      {data.items.length === 0 ? (
-        <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
-          Product feed is temporarily unavailable. Check server logs and environment values for
-          `INTERNAL_API_URL`, `PORT`, and `DATABASE_URL`.
+        {featuredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {featuredProducts.map(p => <ProductCard key={p.id} {...p} />)}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center dark:border-white/[0.07] dark:bg-[#16161e]">
+            <p className="text-[13px] text-gray-400 dark:text-white/40">No products loaded. Check backend is running.</p>
+          </div>
+        )}
+
+        {featuredProducts.length > 0 && (
+          <div className="mt-8 text-center">
+            <Link href="/search" className="btn-ghost rounded-xl px-8 py-3 text-[14px] font-semibold">
+              View all {totalProducts}+ products →
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {/* ── Deal Alert ── */}
+      <section className="relative overflow-hidden rounded-3xl border border-[#FF9900]/15 bg-gradient-to-br from-[#FF9900]/[0.06] via-[#FF9900]/[0.03] to-transparent p-8 text-center sm:p-12">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#FF9900]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-[#FF9900]/[0.08] blur-2xl" />
+        <div className="relative">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#FF9900]/25 bg-[#FF9900]/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FF9900]">
+            <Bell className="h-3 w-3" strokeWidth={2.5} />
+            Deal Alerts
+          </span>
+          <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
+            Never miss a price drop
+          </h2>
+          <p className="mt-2 text-[14px] text-gray-500 dark:text-white/45">
+            Get notified when prices fall on your favourite products.
+          </p>
+          <div className="mx-auto mt-7 flex max-w-md gap-2">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#FF9900]/50 focus:ring-2 focus:ring-[#FF9900]/15 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 transition-all"
+            />
+            <button className="btn-orange rounded-xl px-5 py-3 text-[13px] font-bold whitespace-nowrap">
+              Subscribe
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] text-gray-400 dark:text-white/25">No spam. Unsubscribe anytime.</p>
         </div>
-      ) : null}
-    </section>
+      </section>
+
+    </div>
   );
 }

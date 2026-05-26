@@ -10,10 +10,10 @@ export const metadata = buildMetadata({
 export default function AccountPage() {
   return (
     <section className="space-y-8">
-      <div className="rounded-[32px] border border-white/10 bg-white/[0.06] p-8 backdrop-blur-xl">
-        <h1 className="text-3xl font-semibold text-white">Account</h1>
-        <p className="mt-3 max-w-2xl text-white/62">
-          Register or log in to manage your account. Admin tools appear only for approved admin email addresses.
+      <div className="rounded-2xl border border-gray-200/80 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-7">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Account</h1>
+        <p className="mt-2 text-[14px] text-gray-500 dark:text-white/50">
+          Register or sign in to manage your account. Admin tools unlock only for approved email addresses.
         </p>
       </div>
       <AccountClient />
