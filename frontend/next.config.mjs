@@ -5,6 +5,10 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
