@@ -37,8 +37,14 @@ async function proxy(req: NextRequest, segments: string[]): Promise<NextResponse
 
   let body: string | undefined;
   if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
-    // Must clone: reading the body locks the stream; Next can still touch the original request.
-    body = await req.clone().text();
+    try {
+      // Clone so Next.js can still read the original request body internally.
+      body = await req.clone().text();
+    } catch {
+      // Body stream already consumed (e.g. by Express json middleware on combined server).
+      // Fall back to reading directly — body can't be re-read after this but that's fine.
+      try { body = await req.text(); } catch { body = undefined; }
+    }
   }
 
   const init: RequestInit = {

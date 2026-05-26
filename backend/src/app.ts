@@ -22,7 +22,26 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
-app.use(express.json({ limit: "2mb" }));
+// Only parse JSON body for Express API paths.
+// Skipping for all other paths (e.g. /api/backend/*) leaves the raw
+// IncomingMessage stream unconsumed so Next.js proxy routes can read it.
+const _jsonParser = express.json({ limit: "2mb" });
+app.use((req, res, next) => {
+  if (
+    req.path.startsWith("/auth") ||
+    req.path.startsWith("/products") ||
+    req.path.startsWith("/categories") ||
+    req.path.startsWith("/api/blog") ||
+    req.path.startsWith("/comparisons") ||
+    req.path.startsWith("/analytics") ||
+    req.path.startsWith("/automation") ||
+    req.path.startsWith("/go/") ||
+    req.path === "/health"
+  ) {
+    return _jsonParser(req, res, next);
+  }
+  next();
+});
 app.use(morgan("combined"));
 app.use(
   cors({
