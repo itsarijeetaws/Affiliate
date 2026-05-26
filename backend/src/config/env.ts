@@ -1,6 +1,10 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Works from any CWD: resolves to backend/.env regardless of where node is launched from
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const required = ["DATABASE_URL", "JWT_SECRET", "AUTOMATION_API_KEY"];
 
