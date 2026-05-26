@@ -24,29 +24,13 @@ export function clientFetchUrl(path: string): string {
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
   const isBrowser = typeof window !== "undefined";
 
-  // Same-origin combined Hostinger: browser → Next `/api/backend/auth/*` → loopback Express.
-  // Avoids edge cases where POST `/auth/*` never reaches Express behind the public hostname.
-  if (isBrowser && p.startsWith("/auth")) {
-    let useNextProxy = !fromEnv;
-    if (fromEnv) {
-      try {
-        const abs = fromEnv.includes("://") ? fromEnv : `https://${fromEnv}`;
-        useNextProxy = new URL(abs).origin === window.location.origin;
-      } catch {
-        useNextProxy = false;
-      }
-    }
-    if (useNextProxy) {
-      return `/api/backend${p}`;
-    }
-    return `${stripTrailingSlash(fromEnv!)}${p}`;
-  }
-
   if (fromEnv) {
     const base = stripTrailingSlash(fromEnv);
     if (isBrowser) {
       try {
         const absoluteBase = base.includes("://") ? base : `https://${base}`;
+        // Same-origin (combined server on Hostinger): use relative path so browser
+        // hits the combined Express+Next process directly (no proxy hop needed).
         if (new URL(absoluteBase).origin === window.location.origin) {
           return p;
         }
@@ -56,8 +40,12 @@ export function clientFetchUrl(path: string): string {
     }
     return `${base}${p}`;
   }
+
+  // No NEXT_PUBLIC_API_URL → dev mode with separate servers.
+  // Route ALL backend calls through the Next.js proxy at /api/backend/* so
+  // Express on port 4000 is reachable without exposing that port to the browser.
   if (isBrowser) {
-    return `${window.location.origin}${p}`;
+    return `/api/backend${p}`;
   }
   return `${stripTrailingSlash(DEFAULT_PUBLIC_FALLBACK)}${p}`;
 }
@@ -77,7 +65,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       "Content-Type": "application/json",
       ...(init?.headers || {})
     },
-    ...(typeof window === "undefined" ? { next: { revalidate: 300 } } : {})
+    ...(typeof window === "undefined" ? { cache: "no-store" } : {})
   });
 
   if (!response.ok) {

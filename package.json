@@ -9,7 +9,8 @@
   "scripts": {
     "build": "npm install && npm dedupe && npm --prefix backend run prisma:push && npm --prefix frontend run build && npm --prefix backend run build && npm --prefix backend run seed && node scripts/prepare-hostinger-output.mjs",
     "start": "npm --prefix backend run start:combined",
-    "dev": "npm --prefix backend run dev:combined"
+    "dev": "npm --prefix backend run dev:combined",
+    "dev:local": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"yellow,cyan\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\""
   },
   "engines": {
     "node": ">=20"
@@ -18,5 +19,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }

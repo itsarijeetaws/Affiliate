@@ -1,11 +1,14 @@
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@": path.resolve(process.cwd())
+      "@": path.resolve(__dirname)
     };
     return config;
   },
@@ -17,7 +20,7 @@ const nextConfig = {
       { protocol: "https", hostname: "*.ssl-images-amazon.com" }
     ]
   },
-  outputFileTracingRoot: path.resolve(process.cwd(), "../")
+  outputFileTracingRoot: path.resolve(__dirname, "../")
 };
 
 export default nextConfig;
