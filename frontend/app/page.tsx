@@ -9,7 +9,7 @@ import {
   Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor,
   ShoppingCart, TrendingDown, ShieldCheck, RefreshCw, BadgeCheck,
-  ArrowRight, Sparkles
+  ArrowRight, Sparkles, Shirt, ShoppingBag, Utensils, Briefcase, Sparkle
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,7 +38,8 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string; bg: stri
   laptops:                 { Icon: Laptop,          color: "#06b6d4", bg: "rgba(6,182,212,0.1)" },
   "home-audio":            { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
   headphones:              { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
-  "kitchen-appliances":    { Icon: Home,            color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  "kitchen-appliances":    { Icon: Utensils,        color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  "home-appliances":       { Icon: Home,            color: "#10b981", bg: "rgba(16,185,129,0.1)" },
   fitness:                 { Icon: Dumbbell,        color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
   gaming:                  { Icon: Gamepad2,        color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
   smartwatches:            { Icon: Watch,           color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
@@ -46,6 +47,9 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string; bg: stri
   grooming:                { Icon: Scissors,        color: "#d97706", bg: "rgba(217,119,6,0.1)" },
   cameras:                 { Icon: Camera,          color: "#64748b", bg: "rgba(100,116,139,0.1)" },
   monitors:                { Icon: Monitor,         color: "#7c3aed", bg: "rgba(124,58,237,0.1)" },
+  "womens-fashion":        { Icon: Sparkle,         color: "#f43f5e", bg: "rgba(244,63,94,0.1)"  },
+  "mens-fashion":          { Icon: Shirt,           color: "#0ea5e9", bg: "rgba(14,165,233,0.1)" },
+  "bags-luggage":          { Icon: Briefcase,       color: "#a855f7", bg: "rgba(168,85,247,0.1)" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900", bg: "rgba(255,153,0,0.1)" };
@@ -60,12 +64,20 @@ const TRUST = [
 ];
 
 // ── Carousels to show ────────────────────────────────────────
+// Ordered by commission rate (high → low) so best-earning categories appear first
 const CAROUSEL_CONFIGS = [
-  { slug: "smartphones",   label: "Best Sellers in Smartphones",   accent: "#a78bfa", badge: "Hot" },
-  { slug: "laptops",       label: "Top Laptops",                   accent: "#38bdf8", badge: "Popular" },
-  { slug: "headphones",    label: "Best Headphones & Earbuds",     accent: "#f472b6", badge: "" },
-  { slug: "gaming",        label: "Gaming Bestsellers",            accent: "#f87171", badge: "Trending" },
-  { slug: "smartwatches",  label: "Top Smartwatches",              accent: "#34d399", badge: "" },
+  { slug: "womens-fashion",      label: "Women's Fashion Picks",        accent: "#f43f5e", badge: "10% Commission" },
+  { slug: "mens-fashion",        label: "Men's Fashion Picks",          accent: "#0ea5e9", badge: "10% Commission" },
+  { slug: "bags-luggage",        label: "Top Bags & Luggage",           accent: "#a855f7", badge: "10% Commission" },
+  { slug: "kitchen-appliances",  label: "Kitchen Appliances",           accent: "#10b981", badge: "Hot" },
+  { slug: "grooming",            label: "Grooming & Beauty",            accent: "#d97706", badge: "Trending" },
+  { slug: "fitness",             label: "Fitness & Sports",             accent: "#f59e0b", badge: "" },
+  { slug: "cameras",             label: "Top Cameras",                  accent: "#64748b", badge: "" },
+  { slug: "smartwatches",        label: "Top Smartwatches",             accent: "#34d399", badge: "" },
+  { slug: "smartphones",         label: "Best Sellers in Smartphones",  accent: "#a78bfa", badge: "Hot" },
+  { slug: "laptops",             label: "Top Laptops",                  accent: "#38bdf8", badge: "Popular" },
+  { slug: "headphones",          label: "Best Headphones & Earbuds",    accent: "#f472b6", badge: "" },
+  { slug: "gaming",              label: "Gaming Bestsellers",           accent: "#f87171", badge: "Trending" },
 ] as const;
 
 export default async function HomePage() {
