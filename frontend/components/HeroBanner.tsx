@@ -19,7 +19,7 @@ type Slide = {
 
 const SLIDES: Slide[] = [
   {
-    tag: "👗 10% Commission",
+    tag: "👗 Trending Now",
     title: "Women's Fashion Picks",
     subtitle: "Top-rated kurtas, dresses & ethnic wear — live Amazon India prices",
     cta: "Shop Women's Fashion",
@@ -30,7 +30,7 @@ const SLIDES: Slide[] = [
     accent: "#f43f5e",
   },
   {
-    tag: "👔 10% Commission",
+    tag: "👔 Top Picks",
     title: "Men's Fashion Picks",
     subtitle: "Best-rated shirts, trousers & casual wear for Indian men",
     cta: "Shop Men's Fashion",
@@ -41,7 +41,7 @@ const SLIDES: Slide[] = [
     accent: "#38bdf8",
   },
   {
-    tag: "👜 10% Commission",
+    tag: "👜 New Arrivals",
     title: "Bags & Luggage",
     subtitle: "Top backpacks, trolley bags & handbags — trusted Amazon reviews",
     cta: "Shop Bags",
