@@ -4,7 +4,8 @@ import { AdminDashboard } from "./AdminDashboard";
 export const metadata = buildMetadata({
   title: "Admin Dashboard",
   description: "Manage products, categories, and automation jobs.",
-  path: "/admin"
+  path: "/admin",
+  noindex: true,
 });
 
 export default function AdminPage() {

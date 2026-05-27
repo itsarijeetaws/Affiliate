@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import Link from "next/link";
+import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from "@/lib/seo";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -12,8 +13,71 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BestBuysIndia — Trusted Amazon Product Reviews",
-  description: "Expert reviews, live pricing, and honest comparisons for Indian shoppers. Find the best products on Amazon India."
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — Best Amazon Deals & Reviews India`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description:
+    "Expert reviews, live Amazon pricing, and honest comparisons for Indian shoppers. Find the best products with real ratings and prices.",
+  keywords: [
+    "best products India",
+    "Amazon India deals",
+    "product reviews India",
+    "buy online India",
+    "price comparison India",
+    "top rated products India",
+    "Amazon deals today",
+  ],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — Best Amazon Deals & Reviews India`,
+    description:
+      "Expert reviews, live Amazon pricing, and honest comparisons for Indian shoppers.",
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — Best Amazon Deals & Reviews India`,
+    description:
+      "Expert reviews, live Amazon pricing, and honest comparisons for Indian shoppers.",
+    images: [DEFAULT_OG_IMAGE],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+  },
+  // Add Google Search Console verification:
+  // verification: { google: "YOUR_GSC_CODE_HERE" },
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+  description: "Expert Amazon product reviews, price comparisons and buying guides for Indian shoppers.",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/search?q={search_term_string}` },
+    "query-input": "required name=search_term_string",
+  },
+};
+
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  contactPoint: { "@type": "ContactPoint", email: "hello@bestbuysindia.com", contactType: "customer service" },
 };
 
 const FOOTER_CATEGORIES = [
@@ -37,6 +101,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;if(d)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`
           }}
         />
+        {/* Structured data — WebSite + Organization */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
       </head>
       <body className="bg-gray-100 text-gray-900 dark:bg-[#0d0d12] dark:text-[#e8e8ee]">
 

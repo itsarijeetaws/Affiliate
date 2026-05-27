@@ -4,7 +4,8 @@ import { AccountClient } from "./AccountClient";
 export const metadata = buildMetadata({
   title: "Account",
   description: "Register, log in, and access your account.",
-  path: "/account"
+  path: "/account",
+  noindex: true,
 });
 
 export default function AccountPage() {

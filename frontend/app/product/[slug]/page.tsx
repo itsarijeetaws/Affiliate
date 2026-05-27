@@ -310,7 +310,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return buildMetadata({
       title: `${product.name} Review — Best Price in India`,
       description: `In-depth ${product.name} review. ${Number(product.price) > 0 ? `Price: ₹${Number(product.price).toFixed(0)}, ` : ""}Rating: ${Number(product.rating).toFixed(1)}/5. Expert verdict, pros & cons, and buying advice.`,
-      path: `/product/${slug}`
+      path: `/product/${slug}`,
+      image: product.imageUrl || undefined,
+      type: "article",
     });
   } catch {
     return buildMetadata({ title: `${slug} Review`, description: `Review for ${slug}`, path: `/product/${slug}` });
