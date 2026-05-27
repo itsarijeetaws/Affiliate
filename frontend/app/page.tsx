@@ -66,9 +66,9 @@ const TRUST = [
 // ── Carousels to show ────────────────────────────────────────
 // Ordered by commission rate (high → low) so best-earning categories appear first
 const CAROUSEL_CONFIGS = [
-  { slug: "womens-fashion",      label: "Women's Fashion Picks",        accent: "#f43f5e", badge: "10% Commission" },
-  { slug: "mens-fashion",        label: "Men's Fashion Picks",          accent: "#0ea5e9", badge: "10% Commission" },
-  { slug: "bags-luggage",        label: "Top Bags & Luggage",           accent: "#a855f7", badge: "10% Commission" },
+  { slug: "womens-fashion",      label: "Women's Fashion Picks",        accent: "#f43f5e", badge: "Trending" },
+  { slug: "mens-fashion",        label: "Men's Fashion Picks",          accent: "#0ea5e9", badge: "Trending" },
+  { slug: "bags-luggage",        label: "Top Bags & Luggage",           accent: "#a855f7", badge: "" },
   { slug: "kitchen-appliances",  label: "Kitchen Appliances",           accent: "#10b981", badge: "Hot" },
   { slug: "grooming",            label: "Grooming & Beauty",            accent: "#d97706", badge: "Trending" },
   { slug: "fitness",             label: "Fitness & Sports",             accent: "#f59e0b", badge: "" },
