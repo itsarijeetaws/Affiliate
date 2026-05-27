@@ -16,6 +16,7 @@ import {
   getOpenaiIntegrationStatus
 } from "../services/gemini.service.js";
 import { runPriceUpdateJob } from "../services/price-update.service.js";
+import { fetchAmazonProduct } from "../services/product-fetch.service.js";
 import { toSlug } from "../utils/slug.js";
 import { getWordPressIntegrationStatus } from "../services/wordpress.service.js";
 
@@ -45,6 +46,102 @@ automationRouter.get("/test-amazon", async (_req, res) => {
     const items = await fetchBatchByASINs(["B09TWCHY96"]);
     res.json({ ok: true, fetched: items.length, items });
   } catch (error) {
+    res.status(500).json({ ok: false, error: String(error) });
+  }
+});
+
+// ─── Fetch Product by ASIN ────────────────────────────────────────────────────
+// Returns live Amazon data without saving to DB.
+// Frontend preview → user confirms → POST /automation/save-fetched-product to save.
+
+automationRouter.get("/fetch-product/:asin", async (req, res) => {
+  const asin = req.params.asin.trim().toUpperCase();
+  if (!/^[A-Z0-9]{10}$/.test(asin)) {
+    res.status(400).json({ ok: false, error: "Invalid ASIN — must be 10 alphanumeric characters" });
+    return;
+  }
+
+  try {
+    const product = await fetchAmazonProduct(asin);
+    if (!product) {
+      res.status(404).json({ ok: false, error: "Could not fetch product — Amazon may be blocking the server IP. Try again or use the manual form." });
+      return;
+    }
+    res.json({ ok: true, product });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error) });
+  }
+});
+
+// ─── Save Fetched Product to DB ───────────────────────────────────────────────
+// Call after preview confirmation. Accepts edited fields from the frontend.
+
+automationRouter.post("/save-fetched-product", validateBody(z.object({
+  asin:        z.string().min(8).max(12),
+  title:       z.string().min(3).max(200),
+  price:       z.number().nonnegative(),
+  mrp:         z.number().nonnegative().optional(),
+  rating:      z.number().min(0).max(5).default(0),
+  imageUrl:    z.string().url().or(z.literal("")),
+  affiliateUrl:z.string().url().optional(),
+  features:    z.array(z.string()).default([]),
+  categoryId:  z.number().int().positive(),
+  updateId:    z.number().int().positive().optional(), // existing product ID to update
+})), async (req, res) => {
+  const {
+    asin, title, price, mrp, rating, imageUrl,
+    affiliateUrl, features, categoryId, updateId,
+  } = req.body as {
+    asin: string; title: string; price: number; mrp?: number; rating: number;
+    imageUrl: string; affiliateUrl?: string; features: string[];
+    categoryId: number; updateId?: number;
+  };
+
+  const slug        = toSlug(title).slice(0, 185);
+  const affUrl      = affiliateUrl ?? buildAffiliateUrl(asin);
+  const pros        = features.slice(0, 5);
+  const now         = new Date();
+
+  try {
+    if (updateId) {
+      // Update existing product
+      await db.update(schema.products).set({
+        name: title.slice(0, 185), slug, amazonAsin: asin,
+        price: String(price), rating, imageUrl, categoryId,
+        affiliateUrl: affUrl,
+        pros: JSON.stringify(pros),
+        lastUpdated: now, updatedAt: now,
+      }).where(eq(schema.products.id, updateId));
+
+      await Promise.allSettled([
+        cacheClient.del(`product:/products/${slug}`),
+        cacheClient.del(`products:/products`),
+      ]);
+
+      await logAuto("save-fetched-product", "success", { asin, updateId });
+      const [p] = await db.select().from(schema.products).where(eq(schema.products.id, updateId)).limit(1);
+      res.json({ ok: true, product: p, action: "updated" });
+    } else {
+      // Insert new product
+      await db.insert(schema.products).values({
+        name: title.slice(0, 185), slug, amazonAsin: asin,
+        price: String(price), rating, imageUrl, categoryId,
+        description: features.slice(0, 2).join(" ").slice(0, 500),
+        pros: JSON.stringify(pros),
+        cons: JSON.stringify([]),
+        affiliateUrl: affUrl,
+        lastUpdated: now, createdAt: now, updatedAt: now,
+      }).onDuplicateKeyUpdate({
+        set: { price: String(price), rating, imageUrl, affiliateUrl: affUrl, lastUpdated: now },
+      });
+
+      await cacheClient.del(`products:/products`);
+      const [p] = await db.select().from(schema.products).where(eq(schema.products.amazonAsin, asin)).limit(1);
+      await logAuto("save-fetched-product", "success", { asin, productId: p?.id });
+      res.json({ ok: true, product: p, action: "created" });
+    }
+  } catch (error) {
+    await logAuto("save-fetched-product", "failed", req.body, String(error));
     res.status(500).json({ ok: false, error: String(error) });
   }
 });

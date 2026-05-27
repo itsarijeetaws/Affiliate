@@ -3,11 +3,17 @@
 import React, { FormEvent, useCallback, useEffect, useState } from "react";
 import { clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
-import { Rocket, PenLine, Package, ClipboardList, Wand2, CheckCircle2, XCircle, Loader2, Upload } from "lucide-react";
+import { Rocket, PenLine, Package, ClipboardList, Wand2, CheckCircle2, XCircle, Loader2, Upload, Search, Star, Tag as TagIcon } from "lucide-react";
 
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
 type Product = { id: number; name: string; slug: string; price: number; rating: number };
-type Tab = "pipeline" | "manual" | "import" | "logs" | "products";
+type Tab = "fetch" | "pipeline" | "manual" | "import" | "logs" | "products";
+
+interface FetchedProduct {
+  asin: string; title: string; price: number; mrp: number; rating: number;
+  reviewCount: number; imageUrl: string; affiliateUrl: string; features: string[];
+  availability: string; brand: string; source: string;
+}
 type AuthMode = "login" | "register";
 
 export function AdminClient() {
@@ -31,6 +37,10 @@ export function AdminClient() {
     imageUrl: "", categoryId: 1, description: "", affiliateUrl: ""
   });
   const [automationKey, setAutomationKey] = useState("");
+  const [fetchAsin, setFetchAsin] = useState("");
+  const [fetchedProduct, setFetchedProduct] = useState<FetchedProduct | null>(null);
+  const [fetchEdit, setFetchEdit] = useState<Partial<FetchedProduct & { categoryId: number }>>({});
+  const [fetchLoading, setFetchLoading] = useState(false);
 
   const loadSession = useCallback(async () => {
     const storedToken = getStoredToken();
@@ -161,7 +171,49 @@ export function AdminClient() {
     setMessage(`ok:Blog post created: "${data.blogPost?.title}"`);
   }
 
+  async function fetchProduct(e: React.FormEvent) {
+    e.preventDefault();
+    const asin = fetchAsin.trim().toUpperCase();
+    if (!asin) return;
+    const key = localStorage.getItem("automation_api_key") ?? automationKey;
+    if (!key) { setMessage("err:Enter Automation API key first"); return; }
+    setFetchLoading(true);
+    setFetchedProduct(null);
+    setMessage("loading:Fetching product data from Amazon...");
+    const r = await fetch(clientFetchUrl(`/automation/fetch-product/${asin}`), {
+      headers: { "x-automation-api-key": key },
+    });
+    const data = await r.json() as { ok: boolean; product?: FetchedProduct; error?: string };
+    setFetchLoading(false);
+    if (!data.ok || !data.product) {
+      setMessage(`err:${data.error ?? "Fetch failed"}`);
+      return;
+    }
+    setFetchedProduct(data.product);
+    setFetchEdit({ ...data.product, categoryId: 1 });
+    setMessage(`ok:Fetched via ${data.product.source} — review and save`);
+  }
+
+  async function saveFetchedProduct(updateId?: number) {
+    const key = localStorage.getItem("automation_api_key") ?? automationKey;
+    if (!key || !fetchEdit.asin) return;
+    setLoading(true);
+    setMessage("loading:Saving product...");
+    const r = await fetch(clientFetchUrl("/automation/save-fetched-product"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-automation-api-key": key },
+      body: JSON.stringify({ ...fetchEdit, updateId }),
+    });
+    const data = await r.json() as { ok: boolean; product?: { id: number; name: string }; action?: string; error?: string };
+    setLoading(false);
+    if (!data.ok) { setMessage(`err:${data.error ?? "Save failed"}`); return; }
+    setMessage(`ok:Product ${data.action} — "${data.product?.name?.slice(0, 60)}"`);
+    setFetchedProduct(null);
+    setFetchAsin("");
+  }
+
   const tabs: { id: Tab; label: string; Icon: React.ElementType }[] = [
+    { id: "fetch",    label: "Fetch ASIN", Icon: Search },
     { id: "pipeline", label: "Pipeline",   Icon: Rocket },
     { id: "manual",   label: "Manual Add", Icon: PenLine },
     { id: "import",   label: "CSV Import", Icon: Upload },
@@ -223,6 +275,102 @@ export function AdminClient() {
           </div>
         );
       })()}
+
+      {/* ── Fetch ASIN Tab ── */}
+      {tab === "fetch" && (
+        <div className="space-y-5 text-slate-900">
+          <form onSubmit={fetchProduct} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+            <h2 className="text-lg font-semibold">Fetch Product by ASIN</h2>
+            <p className="text-sm text-slate-500">Enter any Amazon ASIN — live data fetched from Amazon. Review, edit, then save to DB.</p>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 rounded border border-slate-300 p-2 text-sm font-mono uppercase"
+                placeholder="e.g. B09G9FPHY6"
+                value={fetchAsin}
+                onChange={e => setFetchAsin(e.target.value.trim().toUpperCase())}
+                maxLength={12}
+              />
+              <button disabled={fetchLoading || !fetchAsin} className="inline-flex items-center gap-2 rounded bg-[#FF9900] px-5 py-2 text-sm font-bold text-black hover:bg-[#e68a00] disabled:opacity-50">
+                {fetchLoading
+                  ? <><Loader2 className="h-4 w-4 animate-spin" />Fetching...</>
+                  : <><Search className="h-4 w-4" />Fetch</>}
+              </button>
+            </div>
+          </form>
+
+          {fetchedProduct && (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+              <div className="flex gap-5 items-start">
+                {fetchEdit.imageUrl && (
+                  <img src={fetchEdit.imageUrl} alt="" className="w-32 h-32 object-contain rounded border border-slate-100 bg-slate-50 shrink-0" />
+                )}
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">via {fetchedProduct.source}</span>
+                    <span className="text-xs text-slate-400">{fetchedProduct.availability}</span>
+                  </div>
+                  <p className="text-xs font-mono text-slate-400">{fetchedProduct.asin}</p>
+                  {fetchedProduct.brand && <p className="text-xs text-slate-500">Brand: <strong>{fetchedProduct.brand}</strong></p>}
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                    <span className="text-sm font-medium">{fetchedProduct.rating.toFixed(1)}</span>
+                    {fetchedProduct.reviewCount > 0 && <span className="text-xs text-slate-400">({fetchedProduct.reviewCount.toLocaleString()} ratings)</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Product Title</label>
+                  <input className="mt-1 w-full rounded border border-slate-300 p-2 text-sm" value={fetchEdit.title ?? ""} onChange={e => setFetchEdit(v => ({ ...v, title: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Price (₹)</label>
+                    <input type="number" className="mt-1 w-full rounded border border-slate-300 p-2 text-sm" value={fetchEdit.price ?? 0} onChange={e => setFetchEdit(v => ({ ...v, price: Number(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rating</label>
+                    <input type="number" step="0.1" min="0" max="5" className="mt-1 w-full rounded border border-slate-300 p-2 text-sm" value={fetchEdit.rating ?? 0} onChange={e => setFetchEdit(v => ({ ...v, rating: Number(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Category ID</label>
+                    <input type="number" className="mt-1 w-full rounded border border-slate-300 p-2 text-sm" value={fetchEdit.categoryId ?? 1} onChange={e => setFetchEdit(v => ({ ...v, categoryId: Number(e.target.value) }))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Image URL</label>
+                  <input className="mt-1 w-full rounded border border-slate-300 p-2 text-sm font-mono text-xs" value={fetchEdit.imageUrl ?? ""} onChange={e => setFetchEdit(v => ({ ...v, imageUrl: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Affiliate URL</label>
+                  <input className="mt-1 w-full rounded border border-slate-300 p-2 text-sm font-mono text-xs" value={fetchEdit.affiliateUrl ?? ""} onChange={e => setFetchEdit(v => ({ ...v, affiliateUrl: e.target.value }))} />
+                </div>
+                {fetchedProduct.features.length > 0 && (
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Features (used as Pros)</label>
+                    <ul className="mt-1 space-y-1">
+                      {fetchedProduct.features.map((f, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-slate-600"><TagIcon className="h-3 w-3 mt-0.5 shrink-0 text-[#FF9900]" />{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => void saveFetchedProduct()} disabled={loading} className="inline-flex items-center gap-2 rounded bg-green-600 px-5 py-2 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50">
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Add to DB
+                </button>
+                <button onClick={() => { setFetchedProduct(null); setFetchAsin(""); }} className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Pipeline Tab ── */}
       {tab === "pipeline" && (
