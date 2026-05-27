@@ -9,6 +9,7 @@ export const categories = mysqlTable("category", {
   name: varchar("name", { length: 255 }).notNull().unique(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   description: text("description"),
+  commissionRate: decimal("commission_rate", { precision: 4, scale: 2 }).notNull().default("3.5"),
 });
 
 export const users = mysqlTable("user", {

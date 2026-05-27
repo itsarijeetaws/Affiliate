@@ -19,6 +19,7 @@ const NAV_CATEGORIES = [
   { label: "Gaming",           slug: "gaming" },
   { label: "Smartwatches",     slug: "smartwatches" },
   { label: "Power Banks",      slug: "power-banks" },
+  { label: "Smart TVs",         slug: "smart-tvs" },
   { label: "Grooming & Beauty",slug: "grooming" },
   { label: "Cameras",          slug: "cameras" },
   { label: "Monitors",         slug: "monitors" },
@@ -115,7 +116,7 @@ export function Header() {
 
       {/* ── Row 1: Logo + Search + Nav ── */}
       <div className="border-b border-gray-200/80 bg-white/90 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0d0d14]/95">
-        <div className="container-shell flex h-[62px] items-center gap-4 md:gap-6">
+        <div className="container-shell flex h-[62px] items-center gap-2 md:gap-6">
 
           {/* Logo */}
           <Link href="/" className="flex shrink-0 items-center gap-2 group">
@@ -128,7 +129,7 @@ export function Header() {
           </Link>
 
           {/* Search bar */}
-          <form onSubmit={handleSearch} className="search-wrap flex-1 h-[38px]">
+          <form onSubmit={handleSearch} className="search-wrap flex-1 min-w-0 h-[38px]">
             {/* Custom category dropdown — no native select (can't dark-theme OS dropdown) */}
             <div ref={catDropRef} className="relative flex items-center h-full shrink-0 border-r border-gray-200/80 dark:border-white/10 rounded-l-[100px] overflow-visible">
               <button
@@ -209,7 +210,7 @@ export function Header() {
             </Link>
             <Link
               href="/account"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-gray-500 transition-all hover:bg-gray-100 hover:text-gray-900 dark:text-white/50 dark:hover:bg-white/[0.07] dark:hover:text-white/90"
+              className="flex items-center gap-1.5 rounded-lg px-1.5 sm:px-3 py-1.5 text-gray-500 transition-all hover:bg-gray-100 hover:text-gray-900 dark:text-white/50 dark:hover:bg-white/[0.07] dark:hover:text-white/90"
             >
               <User className="h-3.5 w-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">{user ? user.email?.split("@")[0] : "Login"}</span>

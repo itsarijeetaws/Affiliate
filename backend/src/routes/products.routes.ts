@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sql, eq, inArray, desc, or, like } from "drizzle-orm";
+import { sql, eq, inArray, desc, asc, or, like } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
@@ -48,24 +48,35 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
     // Unknown category slug — return empty rather than all products
     productsResult = [];
   } else if (filterCategoryId !== null) {
-    // Category filter: return all products for that category (no pagination cap)
+    // Category filter: within a category sort by rating DESC (commission same for all)
     productsResult = await db.select().from(schema.products)
       .where(eq(schema.products.categoryId, filterCategoryId))
-      .orderBy(desc(schema.products.updatedAt))
+      .orderBy(desc(schema.products.rating), desc(schema.products.updatedAt))
       .limit(500);
   } else if (query) {
-    // Text search — push filter to SQL so all rows are considered
+    // Text search — commission-weighted sort so high-value categories surface first
     const pattern = `%${query}%`;
-    productsResult = await db.select().from(schema.products)
+    productsResult = await db.select({ ...schema.products })
+      .from(schema.products)
+      .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
       .where(or(
         like(schema.products.name, pattern),
         like(schema.products.description, pattern)
       ))
-      .orderBy(desc(schema.products.updatedAt))
+      .orderBy(
+        desc(schema.categories.commissionRate),
+        desc(schema.products.rating)
+      )
       .limit(200);
   } else {
-    productsResult = await db.select().from(schema.products)
-      .orderBy(desc(schema.products.updatedAt))
+    // Default (homepage / all products) — sort by commission rate then rating
+    productsResult = await db.select({ ...schema.products })
+      .from(schema.products)
+      .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+      .orderBy(
+        desc(schema.categories.commissionRate),
+        desc(schema.products.rating)
+      )
       .limit(limit)
       .offset(offset);
   }

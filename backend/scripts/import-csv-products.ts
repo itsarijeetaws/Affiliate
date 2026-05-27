@@ -95,27 +95,37 @@ function matchCategory(
     .replace(/hot new releases in /i, "")
     .trim();
 
-  // Keyword map → DB category slug keywords
+  // Direct name match first (CSV already has mapped names from extension)
+  const directMatch = dbCats.find(
+    c => c.name.toLowerCase() === s.toLowerCase()
+  );
+  if (directMatch) return directMatch.id;
+
+  // Keyword map → DB category name keywords
   const keyMap: Array<[string[], string[]]> = [
-    [["laptop", "notebook", "chromebook", "ultrabook"], ["laptop"]],
-    [["mobile", "smartphone", "tablet", "phone"], ["smartphone", "mobile", "tablet"]],
-    [["audio", "headphone", "earphone", "speaker", "home audio", "hi-fi"], ["audio"]],
-    [["tv", "television", "home theater", "video"], ["tv", "television", "home"]],
-    [["camera", "photography", "action cam"], ["camera"]],
-    [["keyboard", "mice", "mouse", "input", "graphic tablet", "components", "computer"], ["computer", "laptop", "keyboard"]],
-    [["wearable", "watch", "smartwatch", "fitness tracker"], ["watch", "wearable"]],
-    [["mobile accessori", "charger", "power bank", "cable", "usb"], ["mobile-accessories", "accessori"]],
-    [["beauty", "body cream", "body wash", "bath", "shower", "lotion"], ["beauty"]],
-    [["kitchen", "lunch box", "small kitchen"], ["kitchen", "home"]],
-    [["baby", "kids"], ["baby", "kids", "toy"]],
-    [["sport", "fitness", "outdoor"], ["sport", "fitness"]],
-    [["book"], ["book"]],
-    [["jewellery", "jewelry"], ["jewellery", "jewelry", "women"]],
-    [["game", "xbox", "playstation", "video game"], ["game"]],
-    [["health", "personal care"], ["health"]],
-    [["office"], ["office"]],
-    [["home"], ["home"]],
-    [["electronics"], ["electronic"]],
+    [["smartphone", "mobile", "phone", "iphone", "android"],           ["smartphone"]],
+    [["laptop", "notebook", "chromebook", "macbook"],                  ["laptop"]],
+    [["headphone", "earbud", "earphone", "airpod"],                    ["headphone"]],
+    [["home audio", "speaker", "soundbar", "audio"],                   ["home audio", "audio"]],
+    [["smart tv", "television", "tv ", "oled", "qled"],                ["smart tv", "tv"]],
+    [["gaming", "console", "xbox", "playstation", "nintendo"],         ["gaming"]],
+    [["smartwatch", "wearable", "fitness band"],                       ["smartwatch"]],
+    [["power bank", "portable charger"],                               ["power bank"]],
+    [["camera", "photography", "dslr"],                                ["camera"]],
+    [["monitor", "display"],                                           ["monitor"]],
+    [["keyboard", "mouse", "printer", "scanner", "webcam", "peripheral", "computer peripheral", "pc peripheral"], ["computer peripheral"]],
+    [["grooming", "beauty", "skincare", "trimmer", "shaver"],          ["grooming"]],
+    [["fitness", "sport", "gym", "yoga", "exercise"],                  ["fitness"]],
+    [["baby", "kids", "toy", "infant"],                                ["baby"]],
+    [["home appliance", "washing", "refrigerator", "microwave", "oven", "vacuum"], ["home appliance"]],
+    [["kitchen", "cookware"],                                          ["kitchen"]],
+    [["women", "kurti", "saree", "salwar"],                            ["women"]],
+    [["men", "shirt", "trouser"],                                      ["men"]],
+    [["bag", "luggage", "backpack", "suitcase"],                       ["bag"]],
+    [["car", "vehicle", "auto", "bike", "motorcycle"],                 ["automotive"]],
+    [["decor", "furniture", "sofa", "curtain"],                        ["decor"]],
+    [["book", "novel"],                                                ["book"]],
+    [["electronic", "cable", "hdmi", "charger", "router", "bluetooth", "tablet", "projector"], ["electronic"]],
   ];
 
   for (const [keywords, slugHints] of keyMap) {

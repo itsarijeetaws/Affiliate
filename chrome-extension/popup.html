@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amazon.in Scraper</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🛒 Amazon.in Scraper</div>
+    <div class="count-badge" id="count">0 products</div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-primary" id="btnExport">⬇ Export CSV</button>
+    <button class="btn btn-secondary" id="btnExportJSON">{ } JSON</button>
+    <button class="btn btn-danger" id="btnClear">🗑 Clear All</button>
+  </div>
+
+  <!-- Category override row -->
+  <div class="cat-bar">
+    <span class="cat-label">📂 Category:</span>
+    <select id="catInput">
+      <option value="">— Auto-detect —</option>
+      <optgroup label="Electronics">
+        <option value="Electronics">Electronics</option>
+        <option value="Smartphones">Smartphones</option>
+        <option value="Laptops">Laptops</option>
+        <option value="Headphones">Headphones</option>
+        <option value="Home Audio">Home Audio</option>
+        <option value="Smart TVs">Smart TVs</option>
+        <option value="Gaming">Gaming</option>
+        <option value="Smartwatches">Smartwatches</option>
+        <option value="Power Banks">Power Banks</option>
+        <option value="Cameras">Cameras</option>
+        <option value="Monitors">Monitors</option>
+        <option value="Computer Peripherals">Computer Peripherals</option>
+        <option value="Grooming &amp; Beauty">Grooming &amp; Beauty</option>
+        <option value="Fitness &amp; Sports">Fitness &amp; Sports</option>
+        <option value="Baby &amp; Kids">Baby &amp; Kids</option>
+      </optgroup>
+      <optgroup label="Home">
+        <option value="Home Appliances">Home Appliances</option>
+        <option value="Kitchen Appliances">Kitchen Appliances</option>
+        <option value="Home &amp; Decor">Home &amp; Decor</option>
+      </optgroup>
+      <optgroup label="Fashion">
+        <option value="Women's Fashion">Women's Fashion</option>
+        <option value="Men's Fashion">Men's Fashion</option>
+        <option value="Bags &amp; Luggage">Bags &amp; Luggage</option>
+      </optgroup>
+      <optgroup label="Other">
+        <option value="Automotive">Automotive</option>
+        <option value="Books">Books</option>
+      </optgroup>
+    </select>
+    <button class="btn btn-apply" id="btnApplyCat">Apply all</button>
+  </div>
+
+  <div class="hint" id="hint">
+    Visit <strong style="color:#FF9900">amazon.in/dp/…</strong> for single products,
+    or a Bestsellers / search page for bulk capture.
+  </div>
+
+  <div id="productList" class="product-list"></div>
+
+  <div class="footer">
+    <span>Tag: <code>adfirststore-21</code></span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

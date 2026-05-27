@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Amazon.in Product Scraper",
+  "version": "1.2",
+  "description": "Scrape product details from Amazon.in and export as CSV",
+  "permissions": ["storage", "downloads", "activeTab"],
+  "host_permissions": ["*://*.amazon.in/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.amazon.in/dp/*", "*://*.amazon.in/*/dp/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.amazon.in/gp/bestsellers/*",
+        "*://*.amazon.in/gp/new-releases/*",
+        "*://*.amazon.in/gp/top-rated/*",
+        "*://*.amazon.in/s?*",
+        "*://*.amazon.in/s/*",
+        "*://*.amazon.in/b?*"
+      ],
+      "js": ["content_listing.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Amazon.in Scraper"
+  }
+}
