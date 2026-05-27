@@ -93,7 +93,7 @@ async function main() {
   const [rows] = await conn.query<mysql.RowDataPacket[]>(
     `SELECT p.id, p.name, p.price, p.rating, COALESCE(c.name, 'Electronics') AS categoryName
      FROM product p
-     LEFT JOIN category c ON p.categoryId = c.id
+     LEFT JOIN category c ON p.category_id = c.id
      WHERE p.pros IS NULL OR p.pros = '' OR p.pros = '"[]"' OR p.pros = '[]'
      ORDER BY p.id`
   );
