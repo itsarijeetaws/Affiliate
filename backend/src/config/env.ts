@@ -47,5 +47,10 @@ export const env = {
   amazonMarketplaceId: process.env.AMAZON_MARKETPLACE_ID ?? "A21TJRUUN4KGV",
   geminiApiKey: process.env.GEMINI_API_KEY,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-  openaiApiKey: process.env.OPENAI_API_KEY
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  // Email / SMTP
+  smtpHost: process.env.SMTP_HOST ?? "",
+  smtpPort: Number(process.env.SMTP_PORT ?? 587),
+  smtpUser: process.env.SMTP_USER ?? "",
+  smtpPass: process.env.SMTP_PASS ?? "",
 };

@@ -57,6 +57,10 @@ export function AdminDashboard() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [subscribersTotal, setSubscribersTotal] = useState(0);
   const [deletingSubId, setDeletingSubId] = useState<number | null>(null);
+  const [broadcastSubject, setBroadcastSubject] = useState("");
+  const [broadcastHtml, setBroadcastHtml] = useState("");
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number } | null>(null);
 
   // Blog state
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
@@ -219,6 +223,28 @@ export function AdminDashboard() {
     });
     setDeletingSubId(null);
     void fetchSubscribers();
+  }
+
+  async function sendBroadcastEmail(e: FormEvent) {
+    e.preventDefault();
+    if (!broadcastSubject || !broadcastHtml) return;
+    const tok = getStoredToken();
+    if (!tok) return;
+    setBroadcastLoading(true);
+    setBroadcastResult(null);
+    try {
+      const res = await fetch(clientFetchUrl("/subscribe/broadcast"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: broadcastSubject, html: broadcastHtml, text: broadcastSubject }),
+      });
+      const d = await res.json() as { sent?: number; failed?: number; message?: string };
+      if (!res.ok) { setMessage(d.message ?? "Broadcast failed"); return; }
+      setBroadcastResult({ sent: d.sent ?? 0, failed: d.failed ?? 0 });
+      setMessage(`Broadcast sent to ${d.sent} subscribers.`);
+    } finally {
+      setBroadcastLoading(false);
+    }
   }
 
   function exportSubsCsv() {
@@ -1238,6 +1264,40 @@ export function AdminDashboard() {
               </button>
             </div>
           </div>
+
+          {/* Broadcast form */}
+          <form onSubmit={e => void sendBroadcastEmail(e)} className="mb-6 rounded-xl border border-amber-300/15 bg-amber-300/[0.04] p-5 space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-300/70">Send Email to All Subscribers</p>
+            <input
+              value={broadcastSubject}
+              onChange={e => setBroadcastSubject(e.target.value)}
+              placeholder="Subject line"
+              required
+              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-amber-400/50"
+            />
+            <textarea
+              value={broadcastHtml}
+              onChange={e => setBroadcastHtml(e.target.value)}
+              placeholder={"HTML body — e.g.:\n<p>Hi there!</p>\n<p>Check out this week's deals: <a href='https://bestbuysindia.com'>bestbuysindia.com</a></p>"}
+              rows={6}
+              required
+              className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white font-mono placeholder:text-white/25 outline-none focus:border-amber-400/50 resize-y"
+            />
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={broadcastLoading || !broadcastSubject || !broadcastHtml}
+                className="rounded-full bg-amber-300 px-5 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-200 disabled:opacity-50"
+              >
+                {broadcastLoading ? "Sending…" : `Send to ${subscribersTotal} subscribers`}
+              </button>
+              {broadcastResult && (
+                <span className="text-xs text-emerald-400 font-semibold">
+                  ✓ {broadcastResult.sent} sent{broadcastResult.failed > 0 ? `, ${broadcastResult.failed} failed` : ""}
+                </span>
+              )}
+            </div>
+          </form>
 
           {subscribers.length === 0 ? (
             <p className="text-sm text-white/50">No subscribers yet.</p>

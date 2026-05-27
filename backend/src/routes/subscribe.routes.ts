@@ -5,6 +5,7 @@ import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { sendBroadcast } from "../services/email.service.js";
 
 export const subscribeRouter = Router();
 
@@ -50,6 +51,32 @@ subscribeRouter.get("/", requireAdminAuth, async (req, res) => {
     .from(schema.emailSubscribers);
 
   res.json({ items, pagination: { page, limit, total: Number(count) } });
+});
+
+// POST /subscribe/broadcast — admin only, send email to all subscribers
+const broadcastSchema = z.object({
+  subject: z.string().min(1).max(200),
+  html: z.string().min(1),
+  text: z.string().default(""),
+});
+
+subscribeRouter.post("/broadcast", requireAdminAuth, validateBody(broadcastSchema), async (req, res) => {
+  const { subject, html, text } = req.body as z.infer<typeof broadcastSchema>;
+
+  const all = await db.select({ email: schema.emailSubscribers.email }).from(schema.emailSubscribers);
+  const emails = all.map(r => r.email);
+
+  if (emails.length === 0) {
+    res.status(400).json({ message: "No subscribers to send to" });
+    return;
+  }
+
+  try {
+    const result = await sendBroadcast(emails, subject, html, text || subject);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: String(err) });
+  }
 });
 
 // DELETE /subscribe/:id — admin only
