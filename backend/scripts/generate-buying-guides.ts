@@ -182,7 +182,7 @@ async function main() {
       );
       if ((existing as mysql.RowDataPacket[]).length > 0) {
         const len = (existing as mysql.RowDataPacket[])[0].len as number;
-        if (len >= 3000) {
+        if (len >= 5800) {
           console.log(`  ↷  ${label} already exists (${len} chars) — skip`);
           skipped++;
           continue;
