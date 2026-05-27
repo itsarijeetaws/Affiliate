@@ -7,7 +7,12 @@ import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
 type Product = { id: number; name: string; slug: string; price: number; rating: number; imageUrl: string; affiliateUrl: string };
 type EditForm = { name: string; price: string; rating: string; imageUrl: string; affiliateUrl: string; description: string };
-type Tab = "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers";
+type Tab = "fetch" | "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers";
+type FetchedProduct = {
+  asin: string; title: string; price: number; mrp: number; rating: number;
+  reviewCount: number; imageUrl: string; affiliateUrl: string;
+  features: string[]; availability: string; brand: string; source: string;
+};
 type Subscriber = { id: number; email: string; createdAt: string };
 type BlogPost = { id: number; title: string; slug: string; excerpt?: string; status: string; createdAt: string; updatedAt: string };
 type BlogEditForm = { title: string; excerpt: string; content: string; status: string; seoTitle: string; seoDescription: string };
@@ -52,6 +57,12 @@ export function AdminDashboard() {
       return stored ? new Set(JSON.parse(stored) as number[]) : new Set();
     } catch { return new Set(); }
   });
+
+  // Fetch ASIN state
+  const [fetchAsin, setFetchAsin] = useState("");
+  const [fetchedProduct, setFetchedProduct] = useState<FetchedProduct | null>(null);
+  const [fetchEdit, setFetchEdit] = useState<Partial<FetchedProduct & { categoryId: number }>>({});
+  const [fetchLoading, setFetchLoading] = useState(false);
 
   // Subscribers state
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
@@ -606,14 +617,62 @@ export function AdminDashboard() {
     }
   }
 
+  async function fetchProduct(e: React.FormEvent) {
+    e.preventDefault();
+    const asin = fetchAsin.trim().toUpperCase();
+    if (!asin) return;
+    const key = localStorage.getItem("automation_api_key") ?? automationKey;
+    if (!key) { setMessage("Enter Automation API key first"); return; }
+    setFetchLoading(true);
+    setFetchedProduct(null);
+    setMessage("Fetching product data from Amazon…");
+    try {
+      const r = await fetch(clientFetchUrl(`/automation/fetch-product/${asin}`), {
+        headers: { "x-automation-api-key": key },
+      });
+      const data = await r.json() as { ok: boolean; product?: FetchedProduct; error?: string };
+      if (!data.ok || !data.product) {
+        setMessage(`Error: ${data.error ?? "Fetch failed — Amazon may be blocking the server. Try again or add manually."}`);
+      } else {
+        setFetchedProduct(data.product);
+        setFetchEdit({ ...data.product, categoryId: 1 });
+        setMessage(`✓ Fetched via ${data.product.source} — review details and save`);
+      }
+    } catch (err) { setMessage(`Error: ${String(err)}`); }
+    setFetchLoading(false);
+  }
+
+  async function saveFetchedProduct() {
+    const key = localStorage.getItem("automation_api_key") ?? automationKey;
+    if (!key || !fetchEdit.asin) return;
+    setLoading(true);
+    setMessage("Saving product…");
+    try {
+      const r = await fetch(clientFetchUrl("/automation/save-fetched-product"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-automation-api-key": key },
+        body: JSON.stringify(fetchEdit),
+      });
+      const data = await r.json() as { ok: boolean; product?: { id: number; name: string }; action?: string; error?: string };
+      if (!data.ok) { setMessage(`Error: ${data.error ?? "Save failed"}`); }
+      else {
+        setMessage(`✓ Product ${data.action} — "${data.product?.name?.slice(0, 60)}"`);
+        setFetchedProduct(null);
+        setFetchAsin("");
+      }
+    } catch (err) { setMessage(`Error: ${String(err)}`); }
+    setLoading(false);
+  }
+
   const tabs: { id: Tab; label: string }[] = [
-    { id: "pipeline", label: "Pipeline" },
-    { id: "manual", label: "Manual Add" },
-    { id: "import", label: "CSV Import" },
-    { id: "products", label: "Products" },
-    { id: "blogs", label: `Blogs${blogsTotal ? ` (${blogsTotal})` : ""}` },
+    { id: "fetch",       label: "🔍 Fetch ASIN" },
+    { id: "pipeline",    label: "Pipeline" },
+    { id: "manual",      label: "Manual Add" },
+    { id: "import",      label: "CSV Import" },
+    { id: "products",    label: "Products" },
+    { id: "blogs",       label: `Blogs${blogsTotal ? ` (${blogsTotal})` : ""}` },
     { id: "subscribers", label: `Subscribers${subscribersTotal ? ` (${subscribersTotal})` : ""}` },
-    { id: "logs", label: "Logs" }
+    { id: "logs",        label: "Logs" },
   ];
 
   if (!token) {
@@ -739,6 +798,107 @@ export function AdminDashboard() {
       {message ? (
         <div className="rounded-xl border border-white/[0.07] bg-[#1a1a24] p-4 text-sm text-white/82">
           {message}
+        </div>
+      ) : null}
+
+      {tab === "fetch" ? (
+        <div className="space-y-5">
+          {/* Search form */}
+          <form onSubmit={fetchProduct} className="rounded-xl border border-white/[0.08] bg-[#16161e] p-6 text-white space-y-4">
+            <h2 className="text-xl font-semibold">Fetch Product by ASIN</h2>
+            <p className="text-sm text-white/55">Enter any Amazon ASIN — fetches live title, price, image, rating and features. Review before saving to DB.</p>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-2.5 font-mono text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30"
+                placeholder="e.g. B09G9FPHY6"
+                value={fetchAsin}
+                onChange={e => setFetchAsin(e.target.value.trim().toUpperCase())}
+                maxLength={12}
+              />
+              <button
+                type="submit"
+                disabled={fetchLoading || !fetchAsin}
+                className="rounded-2xl bg-[#FF9900] px-6 py-2.5 text-sm font-bold text-black hover:bg-[#e68a00] disabled:opacity-50 transition"
+              >
+                {fetchLoading ? "Fetching…" : "Fetch"}
+              </button>
+            </div>
+          </form>
+
+          {/* Preview card */}
+          {fetchedProduct && (
+            <div className="rounded-xl border border-white/[0.08] bg-[#16161e] p-6 text-white space-y-5">
+              <div className="flex gap-5 items-start">
+                {fetchEdit.imageUrl && (
+                  <img src={fetchEdit.imageUrl} alt="" className="w-28 h-28 object-contain rounded-xl border border-white/10 bg-slate-950/40 shrink-0" />
+                )}
+                <div className="flex-1 space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">via {fetchedProduct.source}</span>
+                    <span className="text-[11px] text-white/40">{fetchedProduct.availability}</span>
+                  </div>
+                  <p className="text-xs font-mono text-white/30">{fetchedProduct.asin}</p>
+                  {fetchedProduct.brand && <p className="text-xs text-white/50">Brand: <span className="text-white/80">{fetchedProduct.brand}</span></p>}
+                  <p className="text-sm text-yellow-400">★ {fetchedProduct.rating.toFixed(1)}
+                    {fetchedProduct.reviewCount > 0 && <span className="text-white/35 text-xs ml-1">({fetchedProduct.reviewCount.toLocaleString()} ratings)</span>}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Title</label>
+                  <input className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-white"
+                    value={fetchEdit.title ?? ""} onChange={e => setFetchEdit(v => ({ ...v, title: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Price (₹)</label>
+                    <input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-white"
+                      value={fetchEdit.price ?? 0} onChange={e => setFetchEdit(v => ({ ...v, price: Number(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Rating</label>
+                    <input type="number" step="0.1" min="0" max="5" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-white"
+                      value={fetchEdit.rating ?? 0} onChange={e => setFetchEdit(v => ({ ...v, rating: Number(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Category ID</label>
+                    <input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-white"
+                      value={fetchEdit.categoryId ?? 1} onChange={e => setFetchEdit(v => ({ ...v, categoryId: Number(e.target.value) }))} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Image URL</label>
+                  <input className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-xs font-mono text-white/70"
+                    value={fetchEdit.imageUrl ?? ""} onChange={e => setFetchEdit(v => ({ ...v, imageUrl: e.target.value }))} />
+                </div>
+                {fetchedProduct.features.length > 0 && (
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Features (saved as Pros)</label>
+                    <ul className="mt-2 space-y-1">
+                      {fetchedProduct.features.map((f, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-white/60">
+                          <span className="text-[#FF9900] shrink-0">›</span>{f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => void saveFetchedProduct()} disabled={loading}
+                  className="rounded-full bg-emerald-500 px-6 py-2 text-sm font-bold text-black hover:bg-emerald-400 disabled:opacity-50 transition">
+                  {loading ? "Saving…" : "✓ Add to DB"}
+                </button>
+                <button onClick={() => { setFetchedProduct(null); setFetchAsin(""); }}
+                  className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition">
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 
