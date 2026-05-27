@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, generateBreadcrumbSchema, generateFAQSchema, SITE_URL } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
 import { ImageGallery } from "@/components/ImageGallery";
 import {
@@ -387,6 +387,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     image: product.imageUrl,
     description: product.description,
     sku: product.slug,
+    brand: { "@type": "Brand", name: product.name.split(" ")[0] },
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: r.toFixed(1),
@@ -397,13 +398,47 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       priceCurrency: "INR",
       price: p.toFixed(2),
       availability: "https://schema.org/InStock",
-      url: product.affiliateUrl
+      url: product.affiliateUrl,
+      seller: { "@type": "Organization", name: "Amazon India" }
     }
   };
+
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    ...(categorySlug ? [{ name: categoryName, url: `${SITE_URL}/category/${categorySlug}` }] : []),
+    { name: product.name, url: `${SITE_URL}/product/${product.slug}` },
+  ]);
+
+  // Auto-generate FAQ from product data for rich results
+  const faqs = [
+    {
+      question: `Is ${product.name} worth buying in India?`,
+      answer: `${verdict.tagline} It has a rating of ${r.toFixed(1)}/5 and an expert score of ${expertScore.toFixed(1)}/10. ${pros.length > 0 ? `Key strengths: ${pros.slice(0, 2).join(", ")}.` : ""}`,
+    },
+    ...(p > 0 ? [{
+      question: `What is the price of ${product.name} in India?`,
+      answer: `The current price of ${product.name} on Amazon India is ₹${p.toLocaleString("en-IN")}. Prices may change — always check Amazon for the latest price.`,
+    }] : []),
+    ...(pros.length > 0 ? [{
+      question: `What are the pros of ${product.name}?`,
+      answer: pros.join(". ") + ".",
+    }] : []),
+    ...(cons.length > 0 ? [{
+      question: `What are the cons of ${product.name}?`,
+      answer: cons.join(". ") + ".",
+    }] : []),
+    {
+      question: `How does ${product.name} compare to alternatives in ${categoryName}?`,
+      answer: `${product.name} scores ${expertScore.toFixed(1)}/10 in our expert review. ${altPrices.length > 0 ? `The average price in ${categoryName} is ₹${Math.round(altPrices.reduce((a, b) => a + b, 0) / altPrices.length).toLocaleString("en-IN")}.` : ""} Check our ${categoryName} comparison page for full alternatives.`,
+    },
+  ];
+  const faqSchema = generateFAQSchema(faqs);
 
   return (
     <article className="mx-auto max-w-5xl space-y-6">
       <SeoJsonLd data={productSchema} />
+      <SeoJsonLd data={breadcrumbSchema} />
+      <SeoJsonLd data={faqSchema} />
 
       {/* ── Breadcrumb ── */}
       <nav className="flex items-center gap-2 text-[12px] text-gray-400 dark:text-white/35">

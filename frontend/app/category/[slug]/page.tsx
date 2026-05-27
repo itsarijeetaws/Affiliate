@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, generateBreadcrumbSchema, SITE_URL } from "@/lib/seo";
+import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { apiFetch } from "@/lib/api";
 import { ProductCard } from "@/components/ProductCard";
 import {
@@ -12,10 +13,16 @@ import type { LucideIcon } from "lucide-react";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const label = slug.replace(/-/g, " ");
+  // Try to get real category name from API
+  let label = slug.replace(/-/g, " ");
+  try {
+    const cats = await apiFetch<Array<{ slug: string; name: string }>>("/categories");
+    const match = cats.find(c => c.slug === slug);
+    if (match) label = match.name;
+  } catch { /* fallback to slug */ }
   return buildMetadata({
-    title: `Best ${label} in India — Reviews & Prices`,
-    description: `Curated ${label} reviews with live Amazon India pricing. Find the best ${label} for your budget.`,
+    title: `Best ${label} in India 2025 — Reviews & Prices`,
+    description: `Top-rated ${label} with live Amazon India pricing. Expert reviews, honest pros & cons, and value-for-money picks for Indian buyers.`,
     path: `/category/${slug}`
   });
 }
@@ -94,8 +101,29 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
     ? (products.reduce((s, p) => s + Number(p.rating), 0) / products.length).toFixed(1)
     : "—";
 
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: "Home", url: SITE_URL },
+    { name: categoryName, url: `${SITE_URL}/category/${slug}` },
+  ]);
+
+  const itemListSchema = products.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `Best ${categoryName} in India`,
+    description: `Top-rated ${categoryName} available on Amazon India`,
+    numberOfItems: products.length,
+    itemListElement: products.slice(0, 20).map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}/product/${p.slug}`,
+      name: p.name,
+    })),
+  } : null;
+
   return (
     <div className="space-y-8">
+      <SeoJsonLd data={breadcrumbSchema} />
+      {itemListSchema && <SeoJsonLd data={itemListSchema} />}
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-[12px] text-gray-400 dark:text-white/35">

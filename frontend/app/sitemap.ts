@@ -39,10 +39,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Categories + top-N pages
-  const categories = await safeFetch<{
-    items: Array<{ slug: string; updatedAt?: string }>;
-  }>("/categories?limit=100");
-  for (const cat of categories?.items ?? []) {
+  // /categories returns a plain array (not {items:[]})
+  const categories = await safeFetch<Array<{ slug: string; updatedAt?: string }>>("/categories");
+  for (const cat of categories ?? []) {
     entries.push({
       url: `${SITE_URL}/category/${cat.slug}`,
       lastModified: cat.updatedAt ? new Date(cat.updatedAt) : now,
@@ -57,10 +56,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  // Products
+  // Products — fetch up to 2000 (covers current ~1200+ catalog)
   const products = await safeFetch<{
     items: Array<{ slug: string; updatedAt: string }>;
-  }>("/products?limit=1000");
+  }>("/products?limit=2000");
   for (const p of products?.items ?? []) {
     entries.push({
       url: `${SITE_URL}/product/${p.slug}`,

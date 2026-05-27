@@ -54,8 +54,8 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
-  // Add Google Search Console verification:
-  // verification: { google: "YOUR_GSC_CODE_HERE" },
+  // Google Search Console: uncomment and add your verification code from GSC → HTML tag method
+  // verification: { google: "PASTE_YOUR_GSC_VERIFICATION_CODE_HERE" },
 };
 
 const websiteSchema = {
@@ -101,6 +101,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;if(d)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`
           }}
         />
+        {/* Google Analytics GA4 — replace G-XXXXXXXXXX with your Measurement ID */}
+        {/* Once you have your GA4 ID, uncomment these two script tags:
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-XXXXXXXXXX');
+        `}} />
+        */}
+
         {/* Structured data — WebSite + Organization */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
