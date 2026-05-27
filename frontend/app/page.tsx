@@ -9,7 +9,8 @@ import {
   Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor,
   ShoppingCart, TrendingDown, ShieldCheck, RefreshCw, BadgeCheck,
-  ArrowRight, Sparkles, Shirt, ShoppingBag, Utensils, Briefcase, Sparkle
+  ArrowRight, Sparkles, Shirt, ShoppingBag, Utensils, Briefcase, Sparkle,
+  Car, Baby, BookOpen, Mouse, Cpu, Tv, Package, Heart
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -50,6 +51,20 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string; bg: stri
   "womens-fashion":        { Icon: Sparkle,         color: "#f43f5e", bg: "rgba(244,63,94,0.1)"  },
   "mens-fashion":          { Icon: Shirt,           color: "#0ea5e9", bg: "rgba(14,165,233,0.1)" },
   "bags-luggage":          { Icon: Briefcase,       color: "#a855f7", bg: "rgba(168,85,247,0.1)" },
+  automotive:              { Icon: Car,             color: "#f97316", bg: "rgba(249,115,22,0.1)" },
+  "baby-kids":             { Icon: Baby,            color: "#fb7185", bg: "rgba(251,113,133,0.1)" },
+  "baby-and-kids":         { Icon: Baby,            color: "#fb7185", bg: "rgba(251,113,133,0.1)" },
+  books:                   { Icon: BookOpen,        color: "#0891b2", bg: "rgba(8,145,178,0.1)" },
+  "computer-peripherals":  { Icon: Mouse,           color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+  "smart-tvs":             { Icon: Tv,              color: "#0ea5e9", bg: "rgba(14,165,233,0.1)" },
+  "health-beauty":         { Icon: Heart,           color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
+  "home-decor":            { Icon: Home,            color: "#84cc16", bg: "rgba(132,204,22,0.1)" },
+  accessories:             { Icon: Package,         color: "#a78bfa", bg: "rgba(167,139,250,0.1)" },
+  toys:                    { Icon: Gamepad2,        color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  sports:                  { Icon: Dumbbell,        color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+  audio:                   { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
+  tablets:                 { Icon: Smartphone,      color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+  printers:                { Icon: Cpu,             color: "#64748b", bg: "rgba(100,116,139,0.1)" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900", bg: "rgba(255,153,0,0.1)" };

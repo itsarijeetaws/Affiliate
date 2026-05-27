@@ -4,11 +4,12 @@ import { buildMetadata, generateBreadcrumbSchema, SITE_URL } from "@/lib/seo";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { apiFetch } from "@/lib/api";
 import { ProductCard } from "@/components/ProductCard";
-import { BookOpen, ArrowRight } from "lucide-react";
 import {
-  Zap, Smartphone, Laptop, Headphones, Home,
+  BookOpen, ArrowRight,
+  Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor, Tv,
-  ShoppingCart, Award
+  ShoppingCart, Award, Shirt, Briefcase, Sparkle, Utensils,
+  Car, Baby, Mouse, Cpu, Heart, Package
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -68,7 +69,25 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
   grooming:              { Icon: Scissors,        color: "#d97706" },
   cameras:               { Icon: Camera,          color: "#64748b" },
   monitors:              { Icon: Monitor,         color: "#7c3aed" },
-  "smart-tvs":           { Icon: Tv,              color: "#0ea5e9" },
+  "smart-tvs":             { Icon: Tv,              color: "#0ea5e9" },
+  "womens-fashion":        { Icon: Sparkle,         color: "#f43f5e" },
+  "mens-fashion":          { Icon: Shirt,           color: "#0ea5e9" },
+  "bags-luggage":          { Icon: Briefcase,       color: "#a855f7" },
+  "kitchen-appliances":    { Icon: Utensils,        color: "#10b981" },
+  "home-appliances":       { Icon: Home,            color: "#10b981" },
+  fitness:                 { Icon: Dumbbell,        color: "#f59e0b" },
+  automotive:              { Icon: Car,             color: "#f97316" },
+  "baby-kids":             { Icon: Baby,            color: "#fb7185" },
+  "baby-and-kids":         { Icon: Baby,            color: "#fb7185" },
+  books:                   { Icon: BookOpen,        color: "#0891b2" },
+  "computer-peripherals":  { Icon: Mouse,           color: "#6366f1" },
+  "health-beauty":         { Icon: Heart,           color: "#f43f5e" },
+  accessories:             { Icon: Package,         color: "#a78bfa" },
+  toys:                    { Icon: Gamepad2,        color: "#f59e0b" },
+  sports:                  { Icon: Dumbbell,        color: "#22c55e" },
+  audio:                   { Icon: Headphones,      color: "#ec4899" },
+  tablets:                 { Icon: Smartphone,      color: "#8b5cf6" },
+  printers:                { Icon: Cpu,             color: "#64748b" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900" };
