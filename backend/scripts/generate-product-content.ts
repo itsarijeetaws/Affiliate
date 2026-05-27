@@ -76,8 +76,11 @@ async function generate(row: ProductRow): Promise<GeneratedContent> {
   });
 
   const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
-  // Strip any accidental markdown fences
-  const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  // Extract JSON object robustly — find first { and last }
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error(`No JSON object found: ${text.slice(0, 120)}`);
+  const clean = text.slice(start, end + 1);
   const parsed = JSON.parse(clean) as GeneratedContent;
 
   // Validate shape
