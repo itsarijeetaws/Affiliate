@@ -2,13 +2,14 @@ import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
 import { HeroBanner } from "@/components/HeroBanner";
 import { CategoryCarousel } from "@/components/CategoryCarousel";
+import { SubscribeSection } from "@/app/components/SubscribeSection";
 import { buildMetadata } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
 import {
   Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor,
   ShoppingCart, TrendingDown, ShieldCheck, RefreshCw, BadgeCheck,
-  Bell, ArrowRight, Sparkles
+  ArrowRight, Sparkles
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -221,33 +222,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── Deal Alert ── */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#FF9900]/15 bg-gradient-to-br from-[#FF9900]/[0.06] via-[#FF9900]/[0.03] to-transparent p-8 text-center sm:p-12">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#FF9900]/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-[#FF9900]/[0.08] blur-2xl" />
-        <div className="relative">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#FF9900]/25 bg-[#FF9900]/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#FF9900]">
-            <Bell className="h-3 w-3" strokeWidth={2.5} />
-            Deal Alerts
-          </span>
-          <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
-            Never miss a price drop
-          </h2>
-          <p className="mt-2 text-[14px] text-gray-500 dark:text-white/45">
-            Get notified when prices fall on your favourite products.
-          </p>
-          <div className="mx-auto mt-7 flex max-w-md gap-2">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-gray-900 placeholder:text-gray-400 outline-none focus:border-[#FF9900]/50 focus:ring-2 focus:ring-[#FF9900]/15 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30 transition-all"
-            />
-            <button className="btn-orange rounded-xl px-5 py-3 text-[13px] font-bold whitespace-nowrap">
-              Subscribe
-            </button>
-          </div>
-          <p className="mt-3 text-[11px] text-gray-400 dark:text-white/25">No spam. Unsubscribe anytime.</p>
-        </div>
-      </section>
+      <SubscribeSection />
 
     </div>
   );

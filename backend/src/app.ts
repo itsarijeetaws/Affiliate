@@ -13,6 +13,7 @@ import { analyticsRouter } from "./routes/analytics.routes.js";
 import { categoriesRouter } from "./routes/categories.routes.js";
 import { blogRouter } from "./routes/blog.routes.js";
 import { comparisonsRouter } from "./routes/comparisons.routes.js";
+import { subscribeRouter } from "./routes/subscribe.routes.js";
 
 export const app = express();
 app.set("trust proxy", 1);
@@ -35,6 +36,7 @@ app.use((req, res, next) => {
     req.path.startsWith("/comparisons") ||
     req.path.startsWith("/analytics") ||
     req.path.startsWith("/automation") ||
+    req.path.startsWith("/subscribe") ||
     req.path.startsWith("/go/") ||
     req.path === "/health"
   ) {
@@ -79,6 +81,7 @@ app.use("/api/blog", blogRouter);
 app.use("/comparisons", comparisonsRouter);
 app.use("/analytics", analyticsRouter);
 app.use("/automation", automationRouter);
+app.use("/subscribe", subscribeRouter);
 app.use("/", redirectRouter);
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

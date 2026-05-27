@@ -14,7 +14,7 @@ function backendOrigin(): string {
   return `http://127.0.0.1:${port}`;
 }
 
-const ALLOWED_PREFIXES = ["/auth", "/automation", "/products", "/categories", "/api/blog", "/comparisons", "/analytics", "/go"];
+const ALLOWED_PREFIXES = ["/auth", "/automation", "/products", "/categories", "/api/blog", "/comparisons", "/analytics", "/go", "/subscribe"];
 
 function allowBackendPath(path: string): boolean {
   return ALLOWED_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + "/"));

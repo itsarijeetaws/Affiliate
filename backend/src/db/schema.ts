@@ -89,6 +89,12 @@ export const clickEvents = mysqlTable("clickevent", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
+export const emailSubscribers = mysqlTable("emailsubscriber", {
+  id: int("id").primaryKey().autoincrement(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
