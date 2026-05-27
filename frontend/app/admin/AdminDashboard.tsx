@@ -7,7 +7,8 @@ import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
 type Product = { id: number; name: string; slug: string; price: number; rating: number; imageUrl: string; affiliateUrl: string };
 type EditForm = { name: string; price: string; rating: string; imageUrl: string; affiliateUrl: string; description: string };
-type Tab = "pipeline" | "manual" | "import" | "logs" | "products" | "blogs";
+type Tab = "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers";
+type Subscriber = { id: number; email: string; createdAt: string };
 type BlogPost = { id: number; title: string; slug: string; excerpt?: string; status: string; createdAt: string; updatedAt: string };
 type BlogEditForm = { title: string; excerpt: string; content: string; status: string; seoTitle: string; seoDescription: string };
 type AuthMode = "login" | "register";
@@ -51,6 +52,11 @@ export function AdminDashboard() {
       return stored ? new Set(JSON.parse(stored) as number[]) : new Set();
     } catch { return new Set(); }
   });
+
+  // Subscribers state
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [subscribersTotal, setSubscribersTotal] = useState(0);
+  const [deletingSubId, setDeletingSubId] = useState<number | null>(null);
 
   // Blog state
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
@@ -191,6 +197,39 @@ export function AdminDashboard() {
     }
   }, [productCategorySlug]);
 
+  const fetchSubscribers = useCallback(async () => {
+    const tok = getStoredToken();
+    if (!tok) return;
+    const res = await fetch(clientFetchUrl("/subscribe?limit=500"), {
+      headers: { Authorization: `Bearer ${tok}` }
+    });
+    if (res.ok) {
+      const d = await res.json();
+      setSubscribers(d.items ?? []);
+      setSubscribersTotal(d.pagination?.total ?? 0);
+    }
+  }, []);
+
+  async function deleteSub(id: number) {
+    const tok = getStoredToken();
+    if (!tok) return;
+    await fetch(clientFetchUrl(`/subscribe/${id}`), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tok}` }
+    });
+    setDeletingSubId(null);
+    void fetchSubscribers();
+  }
+
+  function exportSubsCsv() {
+    const rows = ["email,subscribed_at", ...subscribers.map(s => `${s.email},${s.createdAt}`)];
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "subscribers.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const fetchBlogs = useCallback(async () => {
     const tok = getStoredToken();
     if (!tok) return;
@@ -274,7 +313,8 @@ export function AdminDashboard() {
       void fetchProducts();
     }
     if (tab === "blogs") void fetchBlogs();
-  }, [tab, user, fetchLogs, fetchProducts, fetchCategories, fetchBlogs]);
+    if (tab === "subscribers") void fetchSubscribers();
+  }, [tab, user, fetchLogs, fetchProducts, fetchCategories, fetchBlogs, fetchSubscribers]);
 
   async function runPipeline(event: FormEvent) {
     event.preventDefault();
@@ -522,6 +562,7 @@ export function AdminDashboard() {
     { id: "import", label: "CSV Import" },
     { id: "products", label: "Products" },
     { id: "blogs", label: `Blogs${blogsTotal ? ` (${blogsTotal})` : ""}` },
+    { id: "subscribers", label: `Subscribers${subscribersTotal ? ` (${subscribersTotal})` : ""}` },
     { id: "logs", label: "Logs" }
   ];
 
@@ -1175,6 +1216,83 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Subscribers tab ── */}
+      {tab === "subscribers" ? (
+        <div className="rounded-xl border border-white/[0.08] bg-[#16161e] p-6 text-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <h2 className="text-xl font-semibold">
+              Email Subscribers
+              <span className="ml-2 text-white/40 text-sm font-normal">{subscribersTotal} total</span>
+            </h2>
+            <div className="flex gap-2">
+              <button
+                onClick={exportSubsCsv}
+                disabled={subscribers.length === 0}
+                className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-40"
+              >
+                ↓ Export CSV
+              </button>
+              <button onClick={() => void fetchSubscribers()} className="text-sm font-semibold text-amber-200 hover:text-amber-100 transition">
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {subscribers.length === 0 ? (
+            <p className="text-sm text-white/50">No subscribers yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-white/40 text-[11px] uppercase tracking-wider border-b border-white/[0.08]">
+                    <th className="pb-2 pr-4">#</th>
+                    <th className="pb-2 pr-4">Email</th>
+                    <th className="pb-2 pr-4 whitespace-nowrap hidden sm:table-cell">Subscribed</th>
+                    <th className="pb-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {subscribers.map((sub, i) => (
+                    <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-2.5 pr-4 text-white/30 text-xs">{i + 1}</td>
+                      <td className="py-2.5 pr-4 font-mono text-white/80 text-[13px]">{sub.email}</td>
+                      <td className="py-2.5 pr-4 text-white/35 text-[11px] hidden sm:table-cell whitespace-nowrap">
+                        {new Date(sub.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        {deletingSubId === sub.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => void deleteSub(sub.id)}
+                              className="rounded-lg bg-rose-500/20 border border-rose-500/30 px-2.5 py-1 text-[11px] font-bold text-rose-400 hover:bg-rose-500/30 transition-all"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setDeletingSubId(null)}
+                              className="rounded-lg bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-white/50 hover:bg-white/10 transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setDeletingSubId(sub.id)}
+                            className="rounded-lg bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-rose-400/70 hover:bg-rose-500/15 hover:text-rose-400 transition-all"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {tab === "logs" ? (
         <div className="rounded-xl border border-white/[0.08] bg-[#16161e] p-6 text-white">

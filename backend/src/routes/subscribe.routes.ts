@@ -35,7 +35,7 @@ subscribeRouter.post("/", validateBody(subscribeSchema), async (req, res) => {
 // GET /subscribe — admin only, list all subscribers
 subscribeRouter.get("/", requireAdminAuth, async (req, res) => {
   const page = Number(req.query.page ?? 1);
-  const limit = Math.min(Number(req.query.limit ?? 100), 500);
+  const limit = Math.min(Number(req.query.limit ?? 500), 1000);
   const offset = (page - 1) * limit;
 
   const items = await db
@@ -50,4 +50,12 @@ subscribeRouter.get("/", requireAdminAuth, async (req, res) => {
     .from(schema.emailSubscribers);
 
   res.json({ items, pagination: { page, limit, total: Number(count) } });
+});
+
+// DELETE /subscribe/:id — admin only
+subscribeRouter.delete("/:id", requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ message: "Invalid id" }); return; }
+  await db.delete(schema.emailSubscribers).where(eq(schema.emailSubscribers.id, id));
+  res.json({ ok: true });
 });
