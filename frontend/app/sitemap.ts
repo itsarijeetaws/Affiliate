@@ -3,14 +3,14 @@ import { SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-// Internal API call — same process (combined server on port 3000)
+// Internal API — must match api.ts default port (4000)
 const INTERNAL_API =
   process.env.INTERNAL_API_URL ||
-  `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
+  `http://127.0.0.1:${process.env.PORT ?? "4000"}`;
 
 async function safeFetch<T>(path: string): Promise<T | null> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(`${INTERNAL_API}${path}`, {
       signal: controller.signal,
