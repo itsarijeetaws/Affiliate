@@ -91,9 +91,16 @@ async function generate(row: ProductRow): Promise<GeneratedContent> {
 }
 
 async function main() {
-  const conn = await mysql.createConnection(parseDbUrl(DB_URL!));
+  // Use pool instead of single connection — auto-reconnects on timeout
+  const pool = mysql.createPool({
+    ...parseDbUrl(DB_URL!),
+    waitForConnections: true,
+    connectionLimit: 2,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+  });
 
-  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+  const [rows] = await pool.query<mysql.RowDataPacket[]>(
     `SELECT p.id, p.name, p.price, p.rating, COALESCE(c.name, 'Electronics') AS categoryName
      FROM product p
      LEFT JOIN category c ON p.category_id = c.id
@@ -115,7 +122,7 @@ async function main() {
     try {
       const c = await generate(row);
 
-      await conn.execute(
+      await pool.execute(
         `UPDATE product SET description = ?, pros = ?, cons = ?, updatedAt = NOW() WHERE id = ?`,
         [c.description, JSON.stringify(c.pros), JSON.stringify(c.cons), row.id]
       );
@@ -134,7 +141,7 @@ async function main() {
   }
 
   console.log(`\n✅  Done — success: ${ok}  failed: ${fail}`);
-  await conn.end();
+  await pool.end();
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
