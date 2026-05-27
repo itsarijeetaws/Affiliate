@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import Link from "next/link";
 import { SITE_URL, SITE_NAME, DEFAULT_OG_IMAGE } from "@/lib/seo";
+
+const GA_ID = "G-W39GB2DXXT";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,8 +57,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
-  // Google Search Console: uncomment and add your verification code from GSC → HTML tag method
-  // verification: { google: "PASTE_YOUR_GSC_VERIFICATION_CODE_HERE" },
+  verification: { google: "szdrtw3pp5JCxx8S4dB27s0Gf2_yRj-paiR1gmUJvRk" },
 };
 
 const websiteSchema = {
@@ -101,16 +103,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;if(d)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`
           }}
         />
-        {/* Google Analytics GA4 — replace G-XXXXXXXXXX with your Measurement ID */}
-        {/* Once you have your GA4 ID, uncomment these two script tags:
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX" />
-        <script dangerouslySetInnerHTML={{ __html: `
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-XXXXXXXXXX');
-        `}} />
-        */}
 
         {/* Structured data — WebSite + Organization */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }} />
@@ -198,6 +190,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </footer>
+
+        {/* Google Analytics GA4 — loads after page is interactive, doesn't block render */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="ga4-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}', { page_path: window.location.pathname });
+          `}
+        </Script>
 
       </body>
     </html>
