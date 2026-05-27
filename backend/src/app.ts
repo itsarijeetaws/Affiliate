@@ -61,12 +61,25 @@ app.use(
   })
 );
 
+// Only rate-limit Express API paths.
+// Next.js page/asset requests must be skipped — on reverse-proxy hosting all
+// traffic can appear as a single IP, exhausting the limit for everyone.
+const API_PREFIXES = [
+  "/auth", "/products", "/categories", "/api/blog",
+  "/comparisons", "/analytics", "/automation", "/subscribe",
+];
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 300,
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    skip: (req) => {
+      const p = req.path;
+      if (p === "/health") return false;
+      if (p.startsWith("/go/")) return false;
+      return !API_PREFIXES.some(prefix => p.startsWith(prefix));
+    },
   })
 );
 
