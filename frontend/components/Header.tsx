@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, type AuthUser } from "@/lib/auth";
 import { ThemeToggle } from "./ThemeToggle";
-import { Search, LayoutGrid, BookOpen, User, ShieldCheck, ChevronLeft, ChevronRight, ChevronDown, Tag } from "lucide-react";
+import { Search, LayoutGrid, BookOpen, User, ShieldCheck, ChevronLeft, ChevronRight, ChevronDown, Tag, Menu, X } from "lucide-react";
 
 const NAV_CATEGORIES = [
   { label: "Electronics",   slug: "electronics" },
@@ -33,6 +33,7 @@ export function Header() {
   const [catOpen, setCatOpen] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const navScrollRef = useRef<HTMLDivElement>(null);
@@ -91,6 +92,7 @@ export function Header() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setCatOpen(false);
+    setMobileMenuOpen(false);
     const q = query.trim();
     if (!q && searchCat) {
       router.push(`/category/${searchCat}`);
@@ -206,6 +208,17 @@ export function Header() {
               <span className="hidden sm:inline">{user ? user.email?.split("@")[0] : "Login"}</span>
             </Link>
 
+            {/* Hamburger — mobile only */}
+            <button
+              className="md:hidden ml-0.5 flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-white/50 dark:hover:bg-white/[0.07] transition-colors"
+              onClick={() => setMobileMenuOpen(o => !o)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            >
+              {mobileMenuOpen
+                ? <X className="h-5 w-5" strokeWidth={2} />
+                : <Menu className="h-5 w-5" strokeWidth={2} />}
+            </button>
+
             {/* Theme toggle */}
             <ThemeToggle />
 
@@ -221,6 +234,56 @@ export function Header() {
           </nav>
         </div>
       </div>
+
+      {/* ── Mobile menu drawer (md:hidden) ── */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b border-gray-200/80 bg-white/97 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0d0d14]/98">
+          <nav className="container-shell py-2 space-y-0.5">
+            <Link
+              href="/search?sort=price-asc"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold text-[#FF9900] hover:bg-[#FF9900]/[0.08] transition-colors"
+            >
+              <Tag className="h-4 w-4 shrink-0" strokeWidth={2} />
+              Deals
+            </Link>
+            <Link
+              href="/compare"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold text-gray-700 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+            >
+              <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={2} />
+              Compare Products
+            </Link>
+            <Link
+              href="/blog"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold text-gray-700 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+            >
+              <BookOpen className="h-4 w-4 shrink-0" strokeWidth={2} />
+              Guides &amp; Blog
+            </Link>
+            <Link
+              href="/account"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold text-gray-700 dark:text-white/70 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+            >
+              <User className="h-4 w-4 shrink-0" strokeWidth={2} />
+              {user ? (user.name || user.email.split("@")[0]) : "Sign in / Register"}
+            </Link>
+            {user?.isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold text-[#FF9900] bg-[#FF9900]/[0.07] hover:bg-[#FF9900]/[0.13] transition-colors"
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0" strokeWidth={2} />
+                Admin Panel
+              </Link>
+            )}
+          </nav>
+        </div>
+      )}
 
       {/* ── Row 2: Category nav strip ── */}
       <div className="relative border-b border-gray-200/70 bg-gray-50/90 backdrop-blur-md dark:border-white/[0.05] dark:bg-[#0a0a10]/95">

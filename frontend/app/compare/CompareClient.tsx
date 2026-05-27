@@ -199,7 +199,8 @@ export function CompareClient({ initialCategories }: { initialCategories: Catego
 
       {/* Comparison grid */}
       {comparing.length > 0 && (
-        <div className={`grid gap-4 ${comparing.length === 1 ? "grid-cols-1 max-w-sm" : comparing.length === 2 ? "grid-cols-2" : comparing.length === 3 ? "grid-cols-3" : "grid-cols-4"}`}>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className={`grid gap-4 ${comparing.length === 1 ? "grid-cols-1 max-w-sm" : comparing.length === 2 ? "grid-cols-2" : comparing.length === 3 ? "min-w-[640px] grid-cols-3" : "min-w-[800px] grid-cols-4"}`}>
           {comparing.map(p => {
             const price = Number(p.price);
             const rating = Number(p.rating);
@@ -335,6 +336,7 @@ export function CompareClient({ initialCategories }: { initialCategories: Catego
               </div>
             );
           })}
+        </div>
         </div>
       )}
 
