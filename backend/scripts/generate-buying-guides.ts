@@ -112,7 +112,7 @@ async function generateGuideHtml(
 
   const msg = await ai.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 1500,
+    max_tokens: 2500,
     system:
       "You write SEO-optimized buying guide blog posts in HTML for BestBuysIndia — an Amazon India affiliate site. " +
       "Write natural, helpful content for Indian buyers. " +
@@ -175,15 +175,21 @@ async function main() {
       const title = `Best ${cat.name} Under ₹${bracket.label} in India (2025)`;
       const label = `[${cat.name} < ₹${bracket.label}]`;
 
-      // Skip if already exists
+      // Skip if already exists WITH sufficient content (>3000 chars = complete guide)
       const [existing] = await pool.query<mysql.RowDataPacket[]>(
-        "SELECT id FROM blogpost WHERE slug = ? LIMIT 1",
+        "SELECT id, LENGTH(content) AS len FROM blogpost WHERE slug = ? LIMIT 1",
         [slug]
       );
       if ((existing as mysql.RowDataPacket[]).length > 0) {
-        console.log(`  ↷  ${label} already exists — skip`);
-        skipped++;
-        continue;
+        const len = (existing as mysql.RowDataPacket[])[0].len as number;
+        if (len >= 3000) {
+          console.log(`  ↷  ${label} already exists (${len} chars) — skip`);
+          skipped++;
+          continue;
+        }
+        // Truncated — delete and regenerate
+        console.log(`  ♻  ${label} truncated (${len} chars) — regenerating`);
+        await pool.execute("DELETE FROM blogpost WHERE slug = ?", [slug]);
       }
 
       // Fetch top products in price range
