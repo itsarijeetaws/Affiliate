@@ -48,13 +48,24 @@ type BlogPost = {
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
+/** Strip junk values like "[]", "{}", empty strings left by bad imports */
+const isJunk = (s: string) => {
+  const t = s.trim();
+  return !t || t === "[]" || t === "{}" || t === "null" || t === "undefined";
+};
+
 const normalizeStringList = (value: unknown): string[] => {
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string").filter(s => !isJunk(s));
+  }
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [value];
-    } catch { return [value]; }
+      if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string").filter(s => !isJunk(s));
+      return isJunk(value) ? [] : [value];
+    } catch {
+      return isJunk(value) ? [] : [value];
+    }
   }
   return [];
 };
