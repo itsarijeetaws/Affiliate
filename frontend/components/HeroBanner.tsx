@@ -19,6 +19,39 @@ type Slide = {
 
 const SLIDES: Slide[] = [
   {
+    tag: "👗 10% Commission",
+    title: "Women's Fashion Picks",
+    subtitle: "Top-rated kurtas, dresses & ethnic wear — live Amazon India prices",
+    cta: "Shop Women's Fashion",
+    href: "/category/womens-fashion",
+    from: "#1a0010",
+    via: "#3b0022",
+    to: "#1a0010",
+    accent: "#f43f5e",
+  },
+  {
+    tag: "👔 10% Commission",
+    title: "Men's Fashion Picks",
+    subtitle: "Best-rated shirts, trousers & casual wear for Indian men",
+    cta: "Shop Men's Fashion",
+    href: "/category/mens-fashion",
+    from: "#00101a",
+    via: "#00274a",
+    to: "#00101a",
+    accent: "#38bdf8",
+  },
+  {
+    tag: "👜 10% Commission",
+    title: "Bags & Luggage",
+    subtitle: "Top backpacks, trolley bags & handbags — trusted Amazon reviews",
+    cta: "Shop Bags",
+    href: "/category/bags-luggage",
+    from: "#100020",
+    via: "#250040",
+    to: "#100020",
+    accent: "#a855f7",
+  },
+  {
     tag: "🔥 Bestsellers",
     title: "Top Smartphones",
     subtitle: "Expert reviews on India's most popular phones — live Amazon prices",
@@ -81,6 +114,9 @@ export function HeroBanner({ topImages }: { topImages?: Record<string, string> }
 
   // Map slide href to category slug for image lookup
   const categoryMap: Record<string, string> = {
+    "/category/womens-fashion": "womens-fashion",
+    "/category/mens-fashion": "mens-fashion",
+    "/category/bags-luggage": "bags-luggage",
     "/category/smartphones": "smartphones",
     "/category/laptops": "laptops",
     "/category/headphones": "headphones",

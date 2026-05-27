@@ -116,7 +116,7 @@ export default async function HomePage() {
 
   // Build topImages map for hero banner (first image per carousel category)
   const topImages: Record<string, string> = {};
-  for (const slug of ["smartphones", "laptops", "headphones", "gaming"] as const) {
+  for (const slug of ["womens-fashion", "mens-fashion", "bags-luggage", "smartphones", "laptops", "headphones", "gaming"] as const) {
     const img = carouselMap[slug]?.[0]?.imageUrl;
     if (img) topImages[slug] = img;
   }
