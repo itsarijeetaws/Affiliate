@@ -75,6 +75,10 @@ app.use(
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
+      // Never rate-limit social media scrapers / SEO crawlers
+      const ua = req.headers["user-agent"] ?? "";
+      if (/facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Googlebot|bingbot|Slurp/i.test(ua)) return true;
+
       const p = req.path;
       if (p === "/health") return false;
       if (p.startsWith("/go/")) return false;
