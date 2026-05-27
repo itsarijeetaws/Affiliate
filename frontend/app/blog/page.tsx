@@ -43,15 +43,15 @@ export default async function BlogPage() {
           {posts.map((post) => (
             <article key={post.id} className="group rounded-xl border border-gray-200 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-5 transition hover:border-white/[0.12] hover:bg-gray-50 dark:hover:bg-[#1c1c28]">
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#FF9900]/70">Review</span>
-              <h2 className="mt-2 text-[15px] font-bold leading-snug text-gray-800 dark:text-white/88 group-hover:text-gray-900 dark:group-hover:text-white">
+              <h2 className="mt-2 text-[15px] font-bold leading-snug text-gray-800 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white">
                 {post.title}
               </h2>
               {post.excerpt && (
-                <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-white/45">{post.excerpt}</p>
+                <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-white/60">{post.excerpt}</p>
               )}
               <div className="mt-4 flex items-center justify-between">
                 {post.createdAt && (
-                  <span className="text-[11px] text-gray-400 dark:text-white/30">
+                  <span className="text-[11px] text-gray-400 dark:text-white/45">
                     {new Date(post.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" })}
                   </span>
                 )}
