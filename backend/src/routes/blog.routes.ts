@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
@@ -21,22 +21,27 @@ export const blogRouter = Router();
 
 blogRouter.get("/", async (req, res) => {
   const page = Number(req.query.page ?? 1);
-  const limit = Math.min(Number(req.query.limit ?? 10), 50);
+  const limit = Math.min(Number(req.query.limit ?? 10), 1000);
   const offset = (page - 1) * limit;
+
+  const categoryId = req.query.categoryId ? Number(req.query.categoryId) : null;
+  const whereClause = categoryId
+    ? and(eq(schema.blogPosts.status, "published"), eq(schema.blogPosts.categoryId, categoryId))
+    : eq(schema.blogPosts.status, "published");
 
   const items = await db.select({
     id: schema.blogPosts.id, title: schema.blogPosts.title, slug: schema.blogPosts.slug,
     excerpt: schema.blogPosts.excerpt, createdAt: schema.blogPosts.createdAt
   })
     .from(schema.blogPosts)
-    .where(eq(schema.blogPosts.status, "published"))
+    .where(whereClause)
     .orderBy(sql`createdAt DESC`)
     .limit(limit)
     .offset(offset);
 
   const [{ count }] = await db.select({ count: sql<number>`count(*)` })
     .from(schema.blogPosts)
-    .where(eq(schema.blogPosts.status, "published"));
+    .where(whereClause);
 
   res.json({ items, pagination: { page, limit, total: Number(count) } });
 });

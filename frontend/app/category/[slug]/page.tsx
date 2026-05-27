@@ -4,6 +4,7 @@ import { buildMetadata, generateBreadcrumbSchema, SITE_URL } from "@/lib/seo";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { apiFetch } from "@/lib/api";
 import { ProductCard } from "@/components/ProductCard";
+import { BookOpen, ArrowRight } from "lucide-react";
 import {
   Zap, Smartphone, Laptop, Headphones, Home,
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor, Tv,
@@ -45,6 +46,13 @@ type Category = {
   description?: string | null;
 };
 
+type Guide = {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+};
+
 export const dynamic = "force-dynamic";
 
 const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
@@ -82,6 +90,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   } catch { /* empty */ }
 
   let categoryExists = products.length > 0;
+  let categoryId: number | null = null;
   try {
     const cats = await apiFetch<Category[]>("/categories");
     const cat = cats.find((c) => c.slug === slug);
@@ -89,11 +98,21 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
       categoryName = cat.name;
       categoryDesc = cat.description ?? "";
       categoryExists = true;
+      categoryId = cat.id;
     }
   } catch { /* skip */ }
 
   // Slug exists in neither DB categories nor products → 404
   if (!categoryExists) notFound();
+
+  // Fetch buying guides for this category
+  let guides: Guide[] = [];
+  try {
+    if (categoryId) {
+      const data = await apiFetch<{ items: Guide[] }>(`/api/blog?categoryId=${categoryId}&limit=10`);
+      guides = data.items ?? [];
+    }
+  } catch { /* no guides yet */ }
 
   const { Icon, color } = getIcon(slug);
   const topRated = products.filter(p => Number(p.rating) >= 4.5).slice(0, 3);
@@ -216,6 +235,59 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
           </p>
         </div>
       )}
+
+      {/* ── Buying Guides for this category ── */}
+      {guides.length > 0 && (
+        <section>
+          <div className="section-head">
+            <h2 className="section-title flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-[#FF9900]" strokeWidth={2} />
+              Buying Guides — {categoryName}
+            </h2>
+            <Link href="/blog" className="section-link">
+              All guides <ArrowRight className="inline h-3.5 w-3.5" strokeWidth={2.5} />
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {guides.map(guide => (
+              <Link
+                key={guide.id}
+                href={`/blog/${guide.slug}`}
+                className="group rounded-xl border border-gray-200/80 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-4 transition hover:border-[#FF9900]/30 hover:shadow-md dark:hover:border-[#FF9900]/20"
+              >
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#FF9900]/70">Buying Guide</span>
+                <h3 className="mt-1.5 text-[14px] font-semibold leading-snug text-gray-800 dark:text-white/85 group-hover:text-gray-900 dark:group-hover:text-white line-clamp-2">
+                  {guide.title}
+                </h3>
+                {guide.excerpt && (
+                  <p className="mt-1.5 text-[12px] leading-5 text-gray-500 dark:text-white/40 line-clamp-2">{guide.excerpt}</p>
+                )}
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-bold text-[#FF9900]">
+                  Read guide <ArrowRight className="h-3 w-3" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Top 10 list link */}
+      <div className="rounded-xl border border-gray-200/80 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[13px] font-semibold text-gray-800 dark:text-white/85">
+            See our expert-ranked Top 10
+          </p>
+          <p className="text-[12px] text-gray-400 dark:text-white/35">
+            Best {categoryName} ranked by rating, value & buyer feedback
+          </p>
+        </div>
+        <Link
+          href={`/top/${slug}`}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#FF9900]/10 border border-[#FF9900]/20 px-4 py-2 text-[13px] font-bold text-[#FF9900] hover:bg-[#FF9900]/20 transition-colors whitespace-nowrap"
+        >
+          Top 10 list <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
 
     </div>
   );
