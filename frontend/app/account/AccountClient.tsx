@@ -515,8 +515,7 @@ export function AccountClient() {
 
                 <div>
                   <p className={labelCls}>Account role</p>
-                  <div className="mt-1.5 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold
-                    ${user.isAdmin ? 'border-[#FF9900]/25 bg-[#FF9900]/8 text-[#FF9900]' : 'border-gray-200 dark:border-white/[0.09] bg-gray-50 dark:bg-[#0f0f18] text-gray-600 dark:text-white/60'}">
+                  <div className={`mt-1.5 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-semibold ${user.isAdmin ? 'border-[#FF9900]/25 bg-[#FF9900]/10 text-[#FF9900]' : 'border-gray-200 dark:border-white/[0.09] bg-gray-50 dark:bg-[#0f0f18] text-gray-600 dark:text-white/60'}`}>
                     {user.isAdmin
                       ? <><ShieldCheck className="h-4 w-4" strokeWidth={2} /> Administrator</>
                       : <><User className="h-4 w-4" strokeWidth={2} /> Member</>}
