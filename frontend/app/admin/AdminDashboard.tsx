@@ -582,6 +582,30 @@ export function AdminDashboard() {
     }
   }
 
+  const [priceUpdateRunning, setPriceUpdateRunning] = useState(false);
+  const [priceUpdateResult, setPriceUpdateResult] = useState<{ updated: number; skipped: number; failed: number } | null>(null);
+
+  async function runPriceUpdate() {
+    const key = localStorage.getItem("automation_api_key") ?? automationKey;
+    if (!key) { setMessage("Enter your Automation API key first"); return; }
+    setPriceUpdateRunning(true);
+    setPriceUpdateResult(null);
+    setMessage("Price update running — this may take several minutes for large catalogs…");
+    try {
+      const res = await fetch(clientFetchUrl("/automation/update-prices"), {
+        method: "POST",
+        headers: { "x-automation-api-key": key }
+      });
+      const d = await res.json() as { updated?: number; skipped?: number; failed?: number; message?: string };
+      if (!res.ok) { setMessage(d.message ?? "Price update failed"); return; }
+      const r = { updated: d.updated ?? 0, skipped: d.skipped ?? 0, failed: d.failed ?? 0 };
+      setPriceUpdateResult(r);
+      setMessage(`Price update complete — ${r.updated} updated, ${r.skipped} unchanged, ${r.failed} failed.`);
+    } finally {
+      setPriceUpdateRunning(false);
+    }
+  }
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "pipeline", label: "Pipeline" },
     { id: "manual", label: "Manual Add" },
@@ -675,6 +699,23 @@ export function AdminDashboard() {
             Logout
           </button>
         </div>
+      </div>
+
+      {/* Quick actions row */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/[0.07] bg-[#1a1a24] px-5 py-3">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/35">Quick Actions</span>
+        <button
+          onClick={() => void runPriceUpdate()}
+          disabled={priceUpdateRunning}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#FF9900]/30 bg-[#FF9900]/10 px-4 py-1.5 text-xs font-semibold text-[#FF9900] transition hover:bg-[#FF9900]/20 disabled:opacity-50"
+        >
+          {priceUpdateRunning ? "⏳ Updating prices…" : "↻ Update All Prices Now"}
+        </button>
+        {priceUpdateResult && !priceUpdateRunning && (
+          <span className="text-[11px] text-white/50">
+            ✓ {priceUpdateResult.updated} updated · {priceUpdateResult.skipped} unchanged · {priceUpdateResult.failed} failed
+          </span>
+        )}
       </div>
 
       {/* Automation key row — always visible when logged in */}
