@@ -104,6 +104,76 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   res.json({ items, pagination: { page, limit, total: query ? items.length : Number(count) } });
 });
 
+// ─── CSV Export (admin only) ──────────────────────────────────────────────────
+// GET /api/products/export?category=slug   — must be before /:slug route
+productsRouter.get("/export", requireAdminAuth, async (req, res) => {
+  const categorySlug = String(req.query.category ?? "").trim();
+
+  let rows: Array<{
+    id: number; name: string; amazonAsin: string; price: string;
+    mrp: string | null; rating: number; imageUrl: string;
+    affiliateUrl: string; categorySlug: string | null;
+  }>;
+
+  if (categorySlug) {
+    const [cat] = await db.select().from(schema.categories)
+      .where(eq(schema.categories.slug, categorySlug)).limit(1);
+    if (!cat) { res.status(404).json({ message: "Category not found" }); return; }
+
+    rows = await db.select({
+      id:           schema.products.id,
+      name:         schema.products.name,
+      amazonAsin:   schema.products.amazonAsin,
+      price:        schema.products.price,
+      mrp:          schema.products.mrp,
+      rating:       schema.products.rating,
+      imageUrl:     schema.products.imageUrl,
+      affiliateUrl: schema.products.affiliateUrl,
+      categorySlug: schema.categories.slug,
+    })
+    .from(schema.products)
+    .innerJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+    .where(eq(schema.categories.slug, categorySlug))
+    .orderBy(asc(schema.products.id));
+  } else {
+    rows = await db.select({
+      id:           schema.products.id,
+      name:         schema.products.name,
+      amazonAsin:   schema.products.amazonAsin,
+      price:        schema.products.price,
+      mrp:          schema.products.mrp,
+      rating:       schema.products.rating,
+      imageUrl:     schema.products.imageUrl,
+      affiliateUrl: schema.products.affiliateUrl,
+      categorySlug: schema.categories.slug,
+    })
+    .from(schema.products)
+    .innerJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+    .orderBy(asc(schema.products.id));
+  }
+
+  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = "id,name,amazon_asin,price,mrp,rating,category,image_url,affiliate_url";
+  const lines = rows.map(r => [
+    r.id,
+    esc(r.name),
+    esc(r.amazonAsin),
+    r.price ?? "0",
+    r.mrp ?? "0",
+    r.rating ?? "0",
+    esc(r.categorySlug),
+    esc(r.imageUrl),
+    esc(r.affiliateUrl),
+  ].join(","));
+
+  const csv = [header, ...lines].join("\n");
+  const filename = `products-${categorySlug || "all"}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
+});
+
 productsRouter.get("/:slug", responseCache("product", 300), async (req, res) => {
   const { slug } = req.params;
   const [product] = await db.select().from(schema.products).where(eq(schema.products.slug, String(slug))).limit(1);

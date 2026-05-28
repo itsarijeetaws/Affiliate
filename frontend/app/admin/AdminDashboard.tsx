@@ -293,6 +293,20 @@ export function AdminDashboard() {
     }
   }
 
+  async function exportProductsCsv() {
+    const cat = productCategorySlug;
+    const url = clientFetchUrl(`/products/export${cat ? `?category=${cat}` : ""}`);
+    try {
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) { setMessage("Export failed"); return; }
+      const blob = await resp.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `products-${cat || "all"}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    } catch { setMessage("Export error"); }
+  }
+
   function exportSubsCsv() {
     const rows = ["email,subscribed_at", ...subscribers.map(s => `${s.email},${s.createdAt}`)];
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
@@ -1145,6 +1159,13 @@ export function AdminDashboard() {
               </select>
               <button onClick={() => void fetchProducts()} className="text-sm font-semibold text-amber-200 transition hover:text-amber-100">
                 Refresh
+              </button>
+              <button
+                onClick={() => void exportProductsCsv()}
+                className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-400/20"
+                title="Download CSV — edit prices, re-import via CSV Import tab"
+              >
+                ↓ Export CSV
               </button>
               <button
                 onClick={() => { setAutoCatResults(null); void runAutoCategorize(true); }}
