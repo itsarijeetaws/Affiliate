@@ -177,6 +177,9 @@ export default async function HomePage() {
         ))}
       </section>
 
+      {/* ── Amazon Services / Bounty ── */}
+      <BountyBanner />
+
       {/* ── Shop by Category ── */}
       {categories.length > 0 && (
         <section>
@@ -226,9 +229,6 @@ export default async function HomePage() {
           />
         );
       })}
-
-      {/* ── Amazon Services / Bounty ── */}
-      <BountyBanner />
 
       {/* ── Latest Reviews grid ── */}
       <section>
