@@ -117,6 +117,9 @@ export function AdminDashboard() {
     return () => window.removeEventListener(AUTH_EVENT_NAME, loadSession);
   }, [loadSession]);
 
+  // Load categories on mount for dropdowns
+  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
+
   function saveKey() {
     localStorage.setItem("automation_api_key", automationKey);
     setMessage("API key saved");
@@ -864,8 +867,10 @@ export function AdminDashboard() {
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-widest text-white/35">Category ID</label>
-                    <input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-white"
-                      value={fetchEdit.categoryId ?? 1} onChange={e => setFetchEdit(v => ({ ...v, categoryId: Number(e.target.value) }))} />
+                    <select className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-white"
+                      value={fetchEdit.categoryId ?? 1} onChange={e => setFetchEdit(v => ({ ...v, categoryId: Number(e.target.value) }))}>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div>
@@ -908,7 +913,9 @@ export function AdminDashboard() {
           <p className="mt-2 text-sm text-white/62">Paste ASINs one per line and optionally generate AI content.</p>
           <textarea rows={5} className="mt-5 w-full rounded-2xl border border-white/10 bg-slate-950/35 p-4 font-mono text-sm text-white" value={asins} onChange={(event) => setAsins(event.target.value)} placeholder={"B09G9FPHY6\nB08L5TNJHG"} />
           <div className="mt-4 flex flex-wrap gap-4">
-            <input type="number" className="w-32 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={categoryId} onChange={(event) => setCategoryId(Number(event.target.value))} />
+            <select className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={categoryId} onChange={(event) => setCategoryId(Number(event.target.value))}>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name} (id:{c.id})</option>)}
+            </select>
             <label className="flex items-center gap-2 text-sm text-white/82">
               <input type="checkbox" checked={generateContent} onChange={(event) => setGenerateContent(event.target.checked)} />
               Generate AI content
@@ -953,7 +960,9 @@ export function AdminDashboard() {
             <input className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" placeholder="Product name" value={manual.name} onChange={(event) => setManual({ ...manual, name: event.target.value })} />
             <input type="number" className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" placeholder="Price" value={manual.price} onChange={(event) => setManual({ ...manual, price: Number(event.target.value) })} />
             <input type="number" step="0.1" min="0" max="5" className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" placeholder="Rating" value={manual.rating} onChange={(event) => setManual({ ...manual, rating: Number(event.target.value) })} />
-            <input type="number" className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" placeholder="Category ID" value={manual.categoryId} onChange={(event) => setManual({ ...manual, categoryId: Number(event.target.value) })} />
+            <select className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" value={manual.categoryId} onChange={(event) => setManual({ ...manual, categoryId: Number(event.target.value) })}>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
             <input className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" placeholder="Image URL" value={manual.imageUrl} onChange={(event) => setManual({ ...manual, imageUrl: event.target.value })} />
           </div>
           <input className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-white" placeholder="Affiliate URL (optional)" value={manual.affiliateUrl} onChange={(event) => setManual({ ...manual, affiliateUrl: event.target.value })} />
