@@ -48,6 +48,9 @@ export const env = {
   geminiApiKey: process.env.GEMINI_API_KEY,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   openaiApiKey: process.env.OPENAI_API_KEY,
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+  telegramChannelId: process.env.TELEGRAM_CHANNEL_ID,
+  telegramAdminId: process.env.TELEGRAM_ADMIN_ID,
   // Email / SMTP
   smtpHost: process.env.SMTP_HOST ?? "",
   smtpPort: Number(process.env.SMTP_PORT ?? 587),
