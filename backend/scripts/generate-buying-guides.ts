@@ -177,13 +177,19 @@ async function main() {
       const title = `Best ${cat.name} Under ₹${bracket.label} in India (2025)`;
       const label = `[${cat.name} < ₹${bracket.label}]`;
 
-      // Delete and regenerate every time (force-refresh with improved prompt)
+      // Skip if already exists with sufficient content (≥5800 chars = complete guide)
       const [existing] = await pool.query<mysql.RowDataPacket[]>(
-        "SELECT id FROM blogpost WHERE slug = ? LIMIT 1",
+        "SELECT id, LENGTH(content) AS len FROM blogpost WHERE slug = ? LIMIT 1",
         [slug]
       );
       if ((existing as mysql.RowDataPacket[]).length > 0) {
-        console.log(`  ♻  ${label} — refreshing with updated prompt`);
+        const len = (existing as mysql.RowDataPacket[])[0].len as number;
+        if (len >= 5800) {
+          console.log(`  ↷  ${label} already exists (${len} chars) — skip`);
+          skipped++;
+          continue;
+        }
+        console.log(`  ♻  ${label} truncated (${len} chars) — regenerating`);
         await pool.execute("DELETE FROM blogpost WHERE slug = ?", [slug]);
       }
 
