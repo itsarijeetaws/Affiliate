@@ -3,13 +3,17 @@
  * Sends messages and photos to the BestBuys India Deals channel.
  */
 
-const BOT_TOKEN  = process.env.TELEGRAM_BOT_TOKEN ?? "";
-const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID ?? "";
-const ADMIN_ID   = process.env.TELEGRAM_ADMIN_ID   ?? "";
-const API_BASE   = () => `https://api.telegram.org/bot${BOT_TOKEN}`;
+// Read lazily so dotenv.config() in scripts runs first (ESM hoisting)
+const token     = () => process.env.TELEGRAM_BOT_TOKEN  ?? "";
+const channelId = () => process.env.TELEGRAM_CHANNEL_ID ?? "";
+const adminId   = () => process.env.TELEGRAM_ADMIN_ID   ?? "";
+const API_BASE  = () => `https://api.telegram.org/bot${token()}`;
+
+export const CHANNEL_ID = { get value() { return channelId(); } };
+export const ADMIN_ID   = { get value() { return adminId(); } };
 
 export function isTelegramConfigured(): boolean {
-  return !!(BOT_TOKEN && CHANNEL_ID);
+  return !!(token() && channelId());
 }
 
 export async function sendMessage(
@@ -17,7 +21,7 @@ export async function sendMessage(
   text: string,
   options: { parseMode?: string; disableWebPagePreview?: boolean } = {}
 ): Promise<boolean> {
-  if (!BOT_TOKEN) return false;
+  if (!token()) return false;
   try {
     const res = await fetch(`${API_BASE()}/sendMessage`, {
       method: "POST",
@@ -43,7 +47,7 @@ export async function sendPhoto(
   photoUrl: string,
   caption: string
 ): Promise<boolean> {
-  if (!BOT_TOKEN) return false;
+  if (!token()) return false;
   try {
     const res = await fetch(`${API_BASE()}/sendPhoto`, {
       method: "POST",
@@ -85,7 +89,7 @@ export async function postGuideToChannel(guide: {
     `#BestBuysIndia #BuyingGuide #AmazonIndia`,
   ].join("\n").trim();
 
-  return sendMessage(CHANNEL_ID, text);
+  return sendMessage(channelId(), text);
 }
 
 /** Post a product deal to channel */
@@ -115,17 +119,15 @@ export async function postDealToChannel(product: {
   ].filter(Boolean).join("\n").trim();
 
   if (product.imageUrl) {
-    const ok = await sendPhoto(CHANNEL_ID, product.imageUrl, caption);
+    const ok = await sendPhoto(channelId(), product.imageUrl, caption);
     if (ok) return true;
     // fallback to text if photo fails
   }
-  return sendMessage(CHANNEL_ID, caption);
+  return sendMessage(channelId(), caption);
 }
 
 /** Notify admin of errors */
 export async function notifyAdmin(message: string): Promise<void> {
-  if (!ADMIN_ID) return;
-  await sendMessage(ADMIN_ID, `⚠️ <b>BestBuysIndia Bot Alert</b>\n\n${message}`);
+  if (!adminId()) return;
+  await sendMessage(adminId(), `⚠️ <b>BestBuysIndia Bot Alert</b>\n\n${message}`);
 }
-
-export { CHANNEL_ID, ADMIN_ID };
