@@ -131,13 +131,14 @@ async function main() {
     return;
   }
 
-  // ── 3. NULL out all affected ASINs in one shot ───────────────────────────────
+  // ── 3. Temp-stamp all affected ASINs to unique values (avoid NOT NULL / dup issues)
+  // amazon_asin is NOT NULL UNIQUE — can't set to NULL. Use '_t{id}' (max 8 chars, always unique).
   const nullPlaceholders = fixIds.map(() => "?").join(",");
   await pool.execute(
-    `UPDATE product SET amazon_asin = NULL WHERE id IN (${nullPlaceholders})`,
+    `UPDATE product SET amazon_asin = CONCAT('_t', id) WHERE id IN (${nullPlaceholders})`,
     fixIds
   );
-  console.log(`Step 1: NULLed ${fixIds.length} ASINs`);
+  console.log(`Step 1: Temp-stamped ${fixIds.length} ASINs`);
 
   // ── 4. Re-assign correct ASINs one by one (log any remaining conflicts) ──────
   let fixed = 0, failed = 0;
