@@ -59,12 +59,13 @@ async function main() {
       id,
       name,
       amazon_asin AS stored_asin,
-      SUBSTRING_INDEX(SUBSTRING_INDEX(image_url, '/P/', -1), '.', 1) AS correct_asin
+      SUBSTRING_INDEX(SUBSTRING_INDEX(image_url,     '/P/', -1), '.', 1) AS correct_asin,
+      SUBSTRING_INDEX(SUBSTRING_INDEX(affiliate_url, '/dp/', -1), '?', 1) AS asin_from_url
     FROM product
     WHERE image_url    LIKE '%media-amazon.com/images/P/%'
       AND affiliate_url LIKE '%amazon.in/dp/%'
       AND amazon_asin IS NOT NULL
-    HAVING correct_asin = SUBSTRING_INDEX(SUBSTRING_INDEX(affiliate_url, '/dp/', -1), '?', 1)
+    HAVING correct_asin = asin_from_url
        AND LENGTH(correct_asin) = 10
        AND correct_asin != stored_asin
     ORDER BY id
