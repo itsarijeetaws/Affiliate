@@ -1,0 +1,14 @@
+[
+  {
+    "categorySlug": "mobile-accessories",
+    "products": [
+      {
+        "name": "Product Name Here",
+        "asin": "B0XXXXXXXXX",
+        "price": 999,
+        "rating": 4.3,
+        "imageUrl": "https://m.media-amazon.com/images/I/IMAGEID._SX300_SY300_.jpg"
+      }
+    ]
+  }
+]
