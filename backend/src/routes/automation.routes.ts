@@ -531,13 +531,25 @@ automationRouter.post("/auto-categorize", async (req, res) => {
 
     for (let i = 0; i < products.length; i += BATCH) {
       const batch = products.slice(i, i + BATCH);
-      const input = JSON.stringify(batch.map(p => ({ id: p.id, name: p.name })));
+      const input = JSON.stringify(batch.map(p => ({ id: p.id, name: p.name, currentSlug: catById.get(p.categoryId)?.slug ?? "unknown" })));
 
       const prompt =
         `You are a product categorizer for an Indian Amazon affiliate site.\n` +
         `For each product, pick the single best category slug from this exact list:\n` +
         `${slugList}\n\n` +
-        `Products:\n${input}\n\n` +
+        `Strict rules — follow exactly:\n` +
+        `- Phone chargers (including car chargers), USB cables, phone cases, screen protectors, phone stands, pop sockets, phone holders → mobile-accessories\n` +
+        `- Gimbals/stabilizers designed for smartphones → mobile-accessories\n` +
+        `- Gaming controllers/gamepads designed for smartphones/tablets → mobile-accessories\n` +
+        `- Styluses/pens for tablets or phones → mobile-accessories\n` +
+        `- Selfie sticks, ring lights for phones, phone lenses → mobile-accessories\n` +
+        `- Portable/power banks → power-banks\n` +
+        `- Use "automotive" ONLY for vehicle parts, car tools, seat covers, dash cams (standalone), not phone accessories used in cars\n` +
+        `- Use "gaming" ONLY for PC/console hardware (mice, keyboards, headsets, controllers for PC/console)\n` +
+        `- Use "cameras" ONLY for actual cameras, lenses, tripods for cameras — not phone photography accessories\n` +
+        `- If product name is only a brand name (e.g. "Samsung", "OnePlus") with no product description, keep slug same as current category\n` +
+        `- When uncertain, prefer keeping the current category over changing it\n\n` +
+        `Products (id + name + currentSlug):\n${input}\n\n` +
         `Reply ONLY with a JSON array: [{"id":123,"slug":"the-slug"},...]\n` +
         `No explanation. No markdown. Only the JSON array.`;
 
