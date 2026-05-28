@@ -43,7 +43,7 @@ export function AdminDashboard() {
   });
   const [automationKey, setAutomationKey] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [importResults, setImportResults] = useState<{ upserted?: number; created?: number; failed: number; total?: number; results: Array<{ row: number; status: string; name?: string; error?: string }> } | null>(null);
+  const [importResults, setImportResults] = useState<{ upserted?: number; created?: number; failed: number; total?: number; contentGenerated?: number; contentFailed?: number; results: Array<{ row: number; status: string; name?: string; error?: string }> } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({ name: "", price: "", rating: "", imageUrl: "", affiliateUrl: "", description: "" });
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -621,7 +621,8 @@ export function AdminDashboard() {
         return;
       }
       setImportResults(data as typeof importResults);
-      setMessage(`Import done — ${data.created} created, ${data.skipped} skipped, ${data.failed} failed.`);
+      const contentMsg = data.contentGenerated > 0 ? ` | ✓ ${data.contentGenerated} descriptions generated` : "";
+      setMessage(`Import done — ${data.upserted ?? data.created ?? 0} created, ${data.failed} failed${contentMsg}.`);
     } finally {
       setLoading(false);
     }

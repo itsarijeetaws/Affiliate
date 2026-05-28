@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAutomationApiKey } from "../middleware/auth.js";
@@ -475,7 +475,72 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
   const failed  = results.filter(r => r.status === "failed").length;
   await logAuto("bulk-import", failed === 0 ? "success" : "partial", { total: results.length, created, failed });
 
-  res.json({ upserted: created, failed, total: results.length, results });
+  // Auto-generate description + pros + cons for newly inserted products
+  let contentGenerated = 0, contentFailed = 0;
+  const createdAsins = results.filter(r => r.status === "created").map(r => r.asin);
+
+  if (createdAsins.length > 0 && process.env.ANTHROPIC_API_KEY) {
+    const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    const aiKey = process.env.ANTHROPIC_API_KEY;
+
+    // Fetch newly inserted products with category name
+    const newProducts = await db
+      .select({
+        id: schema.products.id,
+        name: schema.products.name,
+        price: schema.products.price,
+        rating: schema.products.rating,
+        categoryName: schema.categories.name,
+      })
+      .from(schema.products)
+      .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+      .where(inArray(schema.products.amazonAsin, createdAsins));
+
+    for (const p of newProducts) {
+      try {
+        const prompt =
+          `Product: ${p.name}\n` +
+          `Category: ${p.categoryName ?? "Electronics"}\n` +
+          `Price: ₹${p.price ?? 0} | Rating: ${p.rating ?? 4}/5\n\n` +
+          `Generate JSON with keys: description (2-3 sentences for Indian buyers), ` +
+          `pros (array of 3-5 strings ≤10 words each), cons (array of 2-3 strings ≤10 words each).\n` +
+          `Reply ONLY with minified JSON — no markdown, no explanation.`;
+
+        const resp = await fetch(ANTHROPIC_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": aiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5",
+            max_tokens: 512,
+            system: "You write concise product content for an Indian Amazon affiliate site. Respond ONLY with minified JSON.",
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+
+        if (!resp.ok) { contentFailed++; continue; }
+
+        const data = await resp.json() as { content: Array<{ type: string; text?: string }> };
+        const text = (data.content ?? []).filter(b => b.type === "text").map(b => b.text ?? "").join("").trim();
+        const s = text.indexOf("{"), e = text.lastIndexOf("}");
+        if (s === -1 || e === -1) { contentFailed++; continue; }
+
+        const content = JSON.parse(text.slice(s, e + 1)) as { description: string; pros: string[]; cons: string[] };
+        if (!content.description || !Array.isArray(content.pros)) { contentFailed++; continue; }
+
+        await db.update(schema.products)
+          .set({ description: content.description, pros: JSON.stringify(content.pros), cons: JSON.stringify(content.cons), updatedAt: new Date() })
+          .where(eq(schema.products.id, p.id));
+
+        contentGenerated++;
+      } catch { contentFailed++; }
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    await logAuto("bulk-import-content", contentFailed === 0 ? "success" : "partial", { contentGenerated, contentFailed });
+  }
+
+  res.json({ upserted: created, failed, total: results.length, results, contentGenerated, contentFailed });
 });
 
 // ─── Auto-Categorize ─────────────────────────────────────────────────────────
