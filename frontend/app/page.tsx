@@ -10,7 +10,7 @@ import {
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor,
   ShoppingCart, TrendingDown, ShieldCheck, RefreshCw, BadgeCheck,
   ArrowRight, Sparkles, Shirt, ShoppingBag, Utensils, Briefcase, Sparkle,
-  Car, Baby, BookOpen, Mouse, Cpu, Tv, Package, Heart, Watch
+  Car, Baby, BookOpen, Mouse, Cpu, Tv, Package, Heart, Pen
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -65,9 +65,9 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string; bg: stri
   audio:                   { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
   tablets:                 { Icon: Smartphone,      color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
   printers:                { Icon: Cpu,             color: "#64748b", bg: "rgba(100,116,139,0.1)" },
-  watches:                 { Icon: Watch,           color: "#d97706", bg: "rgba(217,119,6,0.1)" },
+  watches:                 { Icon: Watch,           color: "#d97706", bg: "rgba(217,119,6,0.1)" },  // Watch already imported above
   "mobile-accessories":    { Icon: Smartphone,      color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
-  "office-products":       { Icon: Cpu,             color: "#475569", bg: "rgba(71,85,105,0.1)" },
+  "office-products":       { Icon: Pen,             color: "#475569", bg: "rgba(71,85,105,0.1)" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900", bg: "rgba(255,153,0,0.1)" };
