@@ -133,7 +133,9 @@ async function generateGuideHtml(
         `   <ul> with 3 key pros </ul>\n` +
         `   Two links: <a href="/product/[slug]">Read full review</a> and <a href="[affiliateUrl]" rel="nofollow sponsored noopener" target="_blank" class="cta-btn">Buy on Amazon India</a>\n` +
         `3. <h2>How to Choose the Best ${catName} Under ${priceDisp}</h2> — 3-4 tips (important for Indian climate/usage)\n` +
-        `4. <h2>Frequently Asked Questions</h2> — 2 FAQs with <h3>Q:</h3> and <p>A:</p>\n` +
+        `4. <h2>Frequently Asked Questions</h2> — 2 FAQs. Each FAQ must use this exact format:\n` +
+        `   <h3>Q: [Write the full question here]</h3>\n` +
+        `   <p>[Write the full answer here, minimum 2 sentences with specific advice]</p>\n` +
         `5. Short conclusion paragraph with <a href="/category/${catSlug}">link to full category</a>\n\n` +
         `Important: Indian Rupee symbol ₹, mention Amazon India, keep advice practical for Indian buyers.`,
     }],
@@ -177,18 +179,21 @@ async function main() {
 
       // Skip if already exists WITH sufficient content (>3000 chars = complete guide)
       const [existing] = await pool.query<mysql.RowDataPacket[]>(
-        "SELECT id, LENGTH(content) AS len FROM blogpost WHERE slug = ? LIMIT 1",
+        "SELECT id, LENGTH(content) AS len, content FROM blogpost WHERE slug = ? LIMIT 1",
         [slug]
       );
       if ((existing as mysql.RowDataPacket[]).length > 0) {
         const len = (existing as mysql.RowDataPacket[])[0].len as number;
-        if (len >= 5800) {
+        const content = (existing as mysql.RowDataPacket[])[0].content as string ?? "";
+        const hasBrokenFaq = /<p>\s*A:?\s*<\/p>/i.test(content);
+        if (len >= 5800 && !hasBrokenFaq) {
           console.log(`  ↷  ${label} already exists (${len} chars) — skip`);
           skipped++;
           continue;
         }
-        // Truncated — delete and regenerate
-        console.log(`  ♻  ${label} truncated (${len} chars) — regenerating`);
+        // Truncated or broken FAQ — delete and regenerate
+        const reason = hasBrokenFaq ? "broken FAQ" : `truncated (${len} chars)`;
+        console.log(`  ♻  ${label} ${reason} — regenerating`);
         await pool.execute("DELETE FROM blogpost WHERE slug = ?", [slug]);
       }
 
