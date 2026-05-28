@@ -522,6 +522,23 @@ automationRouter.post("/auto-categorize", async (req, res) => {
       products = rows;
     }
 
+    // Transitions that are NEVER valid — AI confuses product ecosystem with category
+    // e.g. "Car Charger for phone" is mobile-accessories, not automotive
+    const BLOCKED_TRANSITIONS: Record<string, string[]> = {
+      "mobile-accessories": ["automotive", "gaming", "cameras", "computer-peripherals", "electronics"],
+      "baby-kids":          ["electronics", "gaming", "grooming"],
+      "office-products":    ["electronics", "computer-peripherals"],
+      "toys":               ["gaming", "electronics"],
+      "books":              ["electronics"],
+      "fitness":            ["electronics", "automotive"],
+    };
+
+    // Brand-name-only products (short names with no product description) — skip
+    const BRAND_ONLY_RE = /^[A-Za-z0-9\s&.,']+$/;
+    function isBrandOnly(name: string): boolean {
+      return name.trim().split(/\s+/).length <= 2 && BRAND_ONLY_RE.test(name.trim());
+    }
+
     const BATCH = 8;
     const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     type ChangeItem = { id: number; name: string; from: string; to: string; toId: number };
@@ -582,17 +599,20 @@ automationRouter.post("/auto-categorize", async (req, res) => {
           if (!product) continue;
           const sugCat = catBySlug.get(sug.slug);
           if (!sugCat) { failed++; continue; }
-          if (sugCat.id === product.categoryId) {
-            unchanged++;
-          } else {
-            changes.push({
-              id: product.id,
-              name: product.name,
-              from: catById.get(product.categoryId)?.slug ?? "unknown",
-              to: sug.slug,
-              toId: sugCat.id,
-            });
-          }
+
+          // Same category — no change
+          if (sugCat.id === product.categoryId) { unchanged++; continue; }
+
+          const fromSlug = catById.get(product.categoryId)?.slug ?? "unknown";
+
+          // Skip brand-name-only products — can't reliably categorize from name alone
+          if (isBrandOnly(product.name)) { unchanged++; continue; }
+
+          // Block known-bad transitions (AI ecosystem confusion)
+          const blocked = BLOCKED_TRANSITIONS[fromSlug];
+          if (blocked?.includes(sug.slug)) { unchanged++; continue; }
+
+          changes.push({ id: product.id, name: product.name, from: fromSlug, to: sug.slug, toId: sugCat.id });
         }
       } catch {
         failed += batch.length;
