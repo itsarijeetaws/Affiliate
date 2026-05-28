@@ -109,7 +109,7 @@ automationRouter.post("/save-fetched-product", validateBody(z.object({
         name: title.slice(0, 185), slug, amazonAsin: asin,
         price: String(price), rating, imageUrl, categoryId,
         affiliateUrl: affUrl,
-        pros: JSON.stringify(pros),
+        pros: pros,
         lastUpdated: now, updatedAt: now,
       }).where(eq(schema.products.id, updateId));
 
@@ -127,8 +127,8 @@ automationRouter.post("/save-fetched-product", validateBody(z.object({
         name: title.slice(0, 185), slug, amazonAsin: asin,
         price: String(price), rating, imageUrl, categoryId,
         description: features.slice(0, 2).join(" ").slice(0, 500),
-        pros: JSON.stringify(pros),
-        cons: JSON.stringify([]),
+        pros: pros,
+        cons: [],
         affiliateUrl: affUrl,
         lastUpdated: now, createdAt: now, updatedAt: now,
       }).onDuplicateKeyUpdate({
@@ -446,8 +446,8 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
         imageUrl, categoryId: catId,
         description: desc,
         affiliateUrl: affUrl,
-        pros: JSON.stringify([]),
-        cons: JSON.stringify([]),
+        pros: [],
+        cons: [],
         lastUpdated: now, createdAt: now, updatedAt: now,
       }).onDuplicateKeyUpdate({
         set: {
@@ -528,7 +528,7 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
         if (!content.description || !Array.isArray(content.pros)) { contentFailed++; continue; }
 
         await db.update(schema.products)
-          .set({ description: content.description, pros: JSON.stringify(content.pros), cons: JSON.stringify(content.cons), updatedAt: new Date() })
+          .set({ description: content.description, pros: content.pros, cons: content.cons, updatedAt: new Date() })
           .where(eq(schema.products.id, p.id));
 
         contentGenerated++;
