@@ -60,7 +60,7 @@ export function SubscribeSection() {
           </div>
         ) : (
           <>
-            <form onSubmit={handleSubmit} className="mx-auto mt-7 flex max-w-md gap-2">
+            <form onSubmit={handleSubmit} className="mx-auto mt-7 flex max-w-md flex-col gap-2 sm:flex-row">
               <input
                 type="email"
                 value={email}
@@ -73,7 +73,7 @@ export function SubscribeSection() {
               <button
                 type="submit"
                 disabled={loading || !email}
-                className="btn-orange rounded-xl px-5 py-3 text-[13px] font-bold whitespace-nowrap disabled:opacity-60"
+                className="btn-orange rounded-xl px-5 py-3 text-[13px] font-bold whitespace-nowrap disabled:opacity-60 sm:w-auto w-full"
               >
                 {loading ? "…" : "Subscribe"}
               </button>
