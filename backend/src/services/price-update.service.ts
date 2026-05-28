@@ -102,6 +102,7 @@ async function fetchPriceForAsin(asin: string): Promise<number | null> {
     }
 
     // ── 3. DOM class patterns (fragile if CAPTCHA returned) ───────────────────
+    // NOTE: No catch-all ₹ pattern — too many false matches (EMI, MRP, related products)
     const domPatterns = [
       // Modern Amazon IN layout
       /"corePriceDisplay_desktop_feature_div"[\s\S]{0,500}?a-price-whole[^>]*>([\d,]+)/,
@@ -110,10 +111,6 @@ async function fetchPriceForAsin(asin: string): Promise<number | null> {
       /class="a-price-whole"[^>]*>\s*([\d,]+)/,
       /id="priceblock_ourprice"[^>]*>\s*₹\s*([\d,]+)/,
       /id="priceblock_dealprice"[^>]*>\s*₹\s*([\d,]+)/,
-      // Deal price
-      /id="dealprice_savings_message"[\s\S]{0,200}?([\d,]{3,6})/,
-      // Catch-all: any ₹ followed by a plausible price
-      /₹\s*([\d,]{3,6})\b/,
     ];
     for (const re of domPatterns) {
       const mx = re.exec(html);
