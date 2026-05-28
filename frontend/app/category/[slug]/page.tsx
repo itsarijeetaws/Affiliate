@@ -90,7 +90,6 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
   watches:                 { Icon: Watch,           color: "#d97706" },
   "mobile-accessories":    { Icon: Smartphone,      color: "#6366f1" },
   "office-products":       { Icon: Pen,             color: "#475569" },
-  toys:                    { Icon: Gamepad2,        color: "#f59e0b" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900" };
