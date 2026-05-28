@@ -665,17 +665,22 @@ export function AdminDashboard() {
     if (!key) { setMessage("Enter your Automation API key first"); return; }
     setPriceUpdateRunning(true);
     setPriceUpdateResult(null);
-    setMessage("Price update running — this may take several minutes for large catalogs…");
     try {
       const res = await fetch(clientFetchUrl("/automation/update-prices"), {
         method: "POST",
         headers: { "x-automation-api-key": key }
       });
-      const d = await res.json() as { updated?: number; skipped?: number; failed?: number; message?: string };
+      const d = await res.json() as { started?: boolean; updated?: number; skipped?: number; failed?: number; message?: string };
       if (!res.ok) { setMessage(d.message ?? "Price update failed"); return; }
-      const r = { updated: d.updated ?? 0, skipped: d.skipped ?? 0, failed: d.failed ?? 0 };
-      setPriceUpdateResult(r);
-      setMessage(`Price update complete — ${r.updated} updated, ${r.skipped} unchanged, ${r.failed} failed.`);
+      if (d.started) {
+        // Background job — responds immediately, check Logs tab for results
+        setMessage("✓ Price update started in background. Check the Logs tab in ~30 min for results.");
+        setPriceUpdateResult(null);
+      } else {
+        const r = { updated: d.updated ?? 0, skipped: d.skipped ?? 0, failed: d.failed ?? 0 };
+        setPriceUpdateResult(r);
+        setMessage(`Price update complete — ${r.updated} updated, ${r.skipped} unchanged, ${r.failed} failed.`);
+      }
     } finally {
       setPriceUpdateRunning(false);
     }

@@ -352,16 +352,14 @@ automationRouter.post("/run-pipeline", validateBody(z.object({
 
 // ─── Update Prices ────────────────────────────────────────────────────────────
 
-automationRouter.post("/update-prices", async (_req, res) => {
-  try {
-    // Scraper-based — no Amazon PA API key required
-    const result = await runPriceUpdateJob();
-    await logAuto("update-prices", "success", result);
-    res.json(result);
-  } catch (error) {
-    await logAuto("update-prices", "failed", {}, String(error));
-    res.status(500).json({ message: "Price update failed", error: String(error) });
-  }
+automationRouter.post("/update-prices", (_req, res) => {
+  // Respond immediately — job can take 30+ minutes for large catalogs
+  res.json({ started: true, message: "Price update started in background. Check Automation Logs for results." });
+
+  // Run in background — no await
+  runPriceUpdateJob()
+    .then(result => logAuto("update-prices", "success", result))
+    .catch(err  => logAuto("update-prices", "failed", {}, String(err)));
 });
 
 // ─── CSV Bulk Import ──────────────────────────────────────────────────────────

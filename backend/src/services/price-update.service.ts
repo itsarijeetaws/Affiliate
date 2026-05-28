@@ -10,7 +10,7 @@
  */
 
 import axios from "axios";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull, ne, and } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 
@@ -103,9 +103,17 @@ async function fetchPriceForAsin(asin: string): Promise<number | null> {
 
     // ── 3. DOM class patterns (fragile if CAPTCHA returned) ───────────────────
     const domPatterns = [
-      /class="a-price-whole"[^>]*>[\s]*([\d,]+)/,
-      /id="priceblock_ourprice"[^>]*>[\s]*₹\s*([\d,]+)/,
-      /id="priceblock_dealprice"[^>]*>[\s]*₹\s*([\d,]+)/,
+      // Modern Amazon IN layout
+      /"corePriceDisplay_desktop_feature_div"[\s\S]{0,500}?a-price-whole[^>]*>([\d,]+)/,
+      /id="apex_offerDisplay_desktop"[\s\S]{0,500}?a-price-whole[^>]*>([\d,]+)/,
+      // Classic selectors
+      /class="a-price-whole"[^>]*>\s*([\d,]+)/,
+      /id="priceblock_ourprice"[^>]*>\s*₹\s*([\d,]+)/,
+      /id="priceblock_dealprice"[^>]*>\s*₹\s*([\d,]+)/,
+      // Deal price
+      /id="dealprice_savings_message"[\s\S]{0,200}?([\d,]{3,6})/,
+      // Catch-all: any ₹ followed by a plausible price
+      /₹\s*([\d,]{3,6})\b/,
     ];
     for (const re of domPatterns) {
       const mx = re.exec(html);
@@ -122,16 +130,23 @@ async function fetchPriceForAsin(asin: string): Promise<number | null> {
 }
 
 export async function runPriceUpdateJob(): Promise<{ updated: number; skipped: number; failed: number }> {
+  // Only process products that have a valid ASIN
   const products = await db.select({
     id: schema.products.id,
     amazonAsin: schema.products.amazonAsin,
     price: schema.products.price,
-  }).from(schema.products);
+  })
+  .from(schema.products)
+  .where(and(
+    isNotNull(schema.products.amazonAsin),
+    ne(schema.products.amazonAsin, ""),
+  ));
 
   let updated = 0, skipped = 0, failed = 0;
 
   for (let i = 0; i < products.length; i++) {
     const { id, amazonAsin, price: oldPrice } = products[i];
+    if (!amazonAsin) { skipped++; continue; } // guard: skip null/empty
     const newPrice = await fetchPriceForAsin(amazonAsin);
 
     if (newPrice === null) {

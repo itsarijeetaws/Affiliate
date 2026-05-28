@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
 import { HeroBanner } from "@/components/HeroBanner";
 import { CategoryCarousel } from "@/components/CategoryCarousel";
+import { BountyBanner } from "@/components/BountyBanner";
 import { SubscribeSection } from "@/app/components/SubscribeSection";
 import { buildMetadata } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
@@ -225,6 +226,9 @@ export default async function HomePage() {
           />
         );
       })}
+
+      {/* ── Amazon Services / Bounty ── */}
+      <BountyBanner />
 
       {/* ── Latest Reviews grid ── */}
       <section>

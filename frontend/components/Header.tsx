@@ -42,9 +42,10 @@ const NAV_CATEGORIES: NavCat[] = [
 const catBySlug = Object.fromEntries(NAV_CATEGORIES.map(c => [c.slug, c])) as Record<string, NavCat>;
 
 // Always visible in the nav strip
+// Ordered by commission: 10% fashion/beauty first, then 5%/3.5% electronics
 const PINNED_SLUGS = [
   "womens-fashion", "mens-fashion", "bags-luggage",
-  "electronics", "smartphones", "laptops",
+  "grooming", "laptops", "electronics",
 ];
 
 // Mega-dropdown groups
