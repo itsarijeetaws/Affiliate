@@ -129,12 +129,22 @@ productsRouter.get("/:slug", responseCache("product", 300), async (req, res) => 
 
 productsRouter.put("/:id", requireAdminAuth, async (req, res) => {
   const id = Number(req.params.id);
-  await db.update(schema.products)
-    .set({ ...(req.body as Partial<typeof schema.products.$inferInsert>), updatedAt: new Date() })
-    .where(eq(schema.products.id, id));
+  try {
+    await db.update(schema.products)
+      .set({ ...(req.body as Partial<typeof schema.products.$inferInsert>), updatedAt: new Date() })
+      .where(eq(schema.products.id, id));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Unique constraint on amazon_asin
+    if (msg.includes("amazon_asin") || msg.includes("Duplicate entry")) {
+      res.status(409).json({ message: "That ASIN is already assigned to another product." });
+      return;
+    }
+    throw err;
+  }
 
   const [updated] = await db.select().from(schema.products).where(eq(schema.products.id, id)).limit(1);
-  
+
   // Re-fetch category and features manually
   const features = await db.select().from(schema.productFeatures).where(eq(schema.productFeatures.productId, id));
   const [category] = updated?.categoryId

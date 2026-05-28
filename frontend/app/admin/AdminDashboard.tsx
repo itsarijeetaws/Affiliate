@@ -5,8 +5,8 @@ import { clientFetchJson, clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
 
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
-type Product = { id: number; name: string; slug: string; price: number; rating: number; imageUrl: string; affiliateUrl: string };
-type EditForm = { name: string; price: string; rating: string; imageUrl: string; affiliateUrl: string; description: string };
+type Product = { id: number; name: string; slug: string; price: number; rating: number; imageUrl: string; affiliateUrl: string; amazonAsin?: string };
+type EditForm = { name: string; price: string; rating: string; imageUrl: string; affiliateUrl: string; description: string; amazonAsin: string };
 type Tab = "fetch" | "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers" | "analytics";
 type FetchedProduct = {
   asin: string; title: string; price: number; mrp: number; rating: number;
@@ -45,7 +45,7 @@ export function AdminDashboard() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importResults, setImportResults] = useState<{ upserted?: number; created?: number; failed: number; total?: number; contentGenerated?: number; contentFailed?: number; results: Array<{ row: number; status: string; name?: string; error?: string }> } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: "", price: "", rating: "", imageUrl: "", affiliateUrl: "", description: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", price: "", rating: "", imageUrl: "", affiliateUrl: "", description: "", amazonAsin: "" });
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkStop, setBulkStop] = useState(false);
   const bulkStopRef = React.useRef(false);
@@ -593,6 +593,7 @@ export function AdminDashboard() {
       imageUrl: product.imageUrl ?? "",
       affiliateUrl: product.affiliateUrl ?? "",
       description: "",
+      amazonAsin: product.amazonAsin ?? "",
     });
   }
 
@@ -610,6 +611,7 @@ export function AdminDashboard() {
           imageUrl: editForm.imageUrl || null,
           affiliateUrl: editForm.affiliateUrl || null,
           ...(editForm.description ? { description: editForm.description } : {}),
+          ...(editForm.amazonAsin ? { amazonAsin: editForm.amazonAsin.trim().toUpperCase() } : {}),
         })
       });
       if (response.ok) {
@@ -1282,6 +1284,9 @@ export function AdminDashboard() {
                             🖱 {productClicks[product.slug]}
                           </span>
                         )}
+                        {product.amazonAsin && (
+                          <span className="ml-1.5 font-mono text-[10px] text-white/25">{product.amazonAsin}</span>
+                        )}
                       </td>
                       <td className="border border-white/10 p-2 text-center text-white/80">₹{Number(product.price).toFixed(0)}</td>
                       <td className="border border-white/10 p-2 text-center text-white/80">{Number(product.rating).toFixed(1)}</td>
@@ -1367,6 +1372,21 @@ export function AdminDashboard() {
                                   onChange={e => setEditForm(f => ({ ...f, affiliateUrl: e.target.value }))}
                                   placeholder="https://www.amazon.in/dp/ASIN/?tag=adfirststore-21"
                                 />
+                              </div>
+                              <div>
+                                <label className="mb-1 block text-[10px] uppercase tracking-widest text-white/35">Amazon ASIN</label>
+                                <input
+                                  className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 font-mono text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30"
+                                  value={editForm.amazonAsin}
+                                  onChange={e => setEditForm(f => ({ ...f, amazonAsin: e.target.value.trim().toUpperCase() }))}
+                                  placeholder="e.g. B09G9FPHY6"
+                                  maxLength={12}
+                                />
+                              </div>
+                              <div className="flex items-end">
+                                <p className="text-[11px] text-white/30 leading-relaxed">
+                                  Fix wrong ASIN → price scraper will pick up correct price on next run.
+                                </p>
                               </div>
                             </div>
                             <div className="flex gap-2 pt-1">
