@@ -117,9 +117,6 @@ export function AdminDashboard() {
     return () => window.removeEventListener(AUTH_EVENT_NAME, loadSession);
   }, [loadSession]);
 
-  // Load categories on mount for dropdowns
-  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
-
   function saveKey() {
     localStorage.setItem("automation_api_key", automationKey);
     setMessage("API key saved");
@@ -203,6 +200,9 @@ export function AdminDashboard() {
       setCategories(Array.isArray(data) ? data : (data.items ?? []));
     }
   }, []);
+
+  // Load categories on mount for dropdowns
+  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
 
   const fetchProducts = useCallback(async (slugFilter?: string) => {
     const slug = slugFilter ?? productCategorySlug;
