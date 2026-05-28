@@ -177,23 +177,13 @@ async function main() {
       const title = `Best ${cat.name} Under ₹${bracket.label} in India (2025)`;
       const label = `[${cat.name} < ₹${bracket.label}]`;
 
-      // Skip if already exists WITH sufficient content (>3000 chars = complete guide)
+      // Delete and regenerate every time (force-refresh with improved prompt)
       const [existing] = await pool.query<mysql.RowDataPacket[]>(
-        "SELECT id, LENGTH(content) AS len, content FROM blogpost WHERE slug = ? LIMIT 1",
+        "SELECT id FROM blogpost WHERE slug = ? LIMIT 1",
         [slug]
       );
       if ((existing as mysql.RowDataPacket[]).length > 0) {
-        const len = (existing as mysql.RowDataPacket[])[0].len as number;
-        const content = (existing as mysql.RowDataPacket[])[0].content as string ?? "";
-        const hasBrokenFaq = /<p>\s*A:?\s*<\/p>/i.test(content);
-        if (len >= 5800 && !hasBrokenFaq) {
-          console.log(`  ↷  ${label} already exists (${len} chars) — skip`);
-          skipped++;
-          continue;
-        }
-        // Truncated or broken FAQ — delete and regenerate
-        const reason = hasBrokenFaq ? "broken FAQ" : `truncated (${len} chars)`;
-        console.log(`  ♻  ${label} ${reason} — regenerating`);
+        console.log(`  ♻  ${label} — refreshing with updated prompt`);
         await pool.execute("DELETE FROM blogpost WHERE slug = ?", [slug]);
       }
 
