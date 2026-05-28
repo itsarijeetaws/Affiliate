@@ -1,13 +1,15 @@
 # Project Memory — Amazon Affiliate Site (bestbuysindia.com)
 
 ## Deployment
-- **Platform**: MilesWeb cPanel + Passenger (NOT PM2, NOT Docker)
-- **Restart after build**: `touch ~/Affiliate/tmp/restart.txt` (Passenger picks it up)
+- **Platform**: MilesWeb Node.js panel (PersistentApp, NOT PM2, NOT Docker)
+- **Restart after build**: Click **Restart** button at `https://dashboard.mympanel.com/advanced/nodejs/`
 - **Server path**: `/var/www/c56950f1-6bf0-4fc0-8b86-f5b566e1f3d2/Affiliate/`
 - **Server user**: `bestbuys1@ampere`
-- **Working dir on server**: `~/Affiliate/backend` (always already there, never `cd backend`)
+- **Working dir on server**: `~/Affiliate/backend` (already there — never `cd backend`)
+- **Startup command**: `node /var/www/.../Affiliate/backend/dist/combined-server.js`
+- **Port**: 3000, Node version: Stable (v26.2.0)
 - **Build command**: `npm run build` (runs `tsc`) from `~/Affiliate/backend`
-- **Deploy flow**: local `git push` → server `git pull && npm run build && touch ~/Affiliate/tmp/restart.txt`
+- **Deploy flow**: local `git push` → server `git pull && npm run build` → click Restart in MilesWeb UI
 
 ## Stack
 - **Frontend**: Next.js 15 App Router + TailwindCSS + TypeScript
