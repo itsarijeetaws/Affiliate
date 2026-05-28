@@ -31,10 +31,13 @@ const NAV_CATEGORIES = [
   { label: "Audio",            slug: "home-audio" },
   { label: "Fitness",          slug: "fitness" },
   { label: "PC Peripherals",   slug: "computer-peripherals" },
-  { label: "Baby & Kids",      slug: "baby-kids" },
-  { label: "Automotive",       slug: "automotive" },
-  { label: "Home & Decor",     slug: "home-decor" },
-  { label: "Books",            slug: "books" },
+  { label: "Baby & Kids",         slug: "baby-kids" },
+  { label: "Toys & Games",        slug: "toys" },
+  { label: "Mobile Accessories",  slug: "mobile-accessories" },
+  { label: "Office Products",     slug: "office-products" },
+  { label: "Automotive",          slug: "automotive" },
+  { label: "Home & Decor",        slug: "home-decor" },
+  { label: "Books",               slug: "books" },
 ];
 
 export function Header() {
