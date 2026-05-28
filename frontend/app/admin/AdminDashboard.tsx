@@ -7,7 +7,7 @@ import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
 type Product = { id: number; name: string; slug: string; price: number; rating: number; imageUrl: string; affiliateUrl: string };
 type EditForm = { name: string; price: string; rating: string; imageUrl: string; affiliateUrl: string; description: string };
-type Tab = "fetch" | "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers";
+type Tab = "fetch" | "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers" | "analytics";
 type FetchedProduct = {
   asin: string; title: string; price: number; mrp: number; rating: number;
   reviewCount: number; imageUrl: string; affiliateUrl: string;
@@ -63,6 +63,16 @@ export function AdminDashboard() {
   type AutoCatResult = { dryRun: boolean; total: number; changed: number; unchanged: number; failed: number; changes: AutoCatChange[] };
   const [autoCatRunning, setAutoCatRunning] = useState(false);
   const [autoCatResults, setAutoCatResults] = useState<AutoCatResult | null>(null);
+
+  // Analytics state
+  type AnalyticsSummary = { allTime: number; today: number; week: number; month: number };
+  type TopProduct = { slug: string; clicks: number; productName: string | null; categoryName: string | null };
+  type CategoryStat = { categoryName: string; clicks: number };
+  type DailyStat = { date: string; clicks: number };
+  type AnalyticsData = { summary: AnalyticsSummary; topProducts: TopProduct[]; byCategory: CategoryStat[]; daily: DailyStat[] };
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [productClicks, setProductClicks] = useState<Record<string, number>>({});
 
   // Fetch ASIN state
   const [fetchAsin, setFetchAsin] = useState("");
@@ -234,6 +244,22 @@ export function AdminDashboard() {
     }
   }, []);
 
+  const fetchAnalytics = useCallback(async () => {
+    const tok = getStoredToken();
+    if (!tok) return;
+    setAnalyticsLoading(true);
+    try {
+      const [dashRes, clickRes] = await Promise.all([
+        fetch(clientFetchUrl("/analytics/dashboard"), { headers: { Authorization: `Bearer ${tok}` } }),
+        fetch(clientFetchUrl("/analytics/product-clicks"), { headers: { Authorization: `Bearer ${tok}` } }),
+      ]);
+      if (dashRes.ok)  setAnalyticsData(await dashRes.json() as AnalyticsData);
+      if (clickRes.ok) setProductClicks(((await clickRes.json()) as { slugCounts: Record<string, number> }).slugCounts);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
   async function deleteSub(id: number) {
     const tok = getStoredToken();
     if (!tok) return;
@@ -357,10 +383,12 @@ export function AdminDashboard() {
     if (tab === "products") {
       void fetchCategories();
       void fetchProducts();
+      void fetchAnalytics(); // load click counts for badge
     }
+    if (tab === "analytics") void fetchAnalytics();
     if (tab === "blogs") void fetchBlogs();
     if (tab === "subscribers") void fetchSubscribers();
-  }, [tab, user, fetchLogs, fetchProducts, fetchCategories, fetchBlogs, fetchSubscribers]);
+  }, [tab, user, fetchLogs, fetchProducts, fetchCategories, fetchBlogs, fetchSubscribers, fetchAnalytics]);
 
   async function runPipeline(event: FormEvent) {
     event.preventDefault();
@@ -707,6 +735,7 @@ export function AdminDashboard() {
     { id: "products",    label: "Products" },
     { id: "blogs",       label: `Blogs${blogsTotal ? ` (${blogsTotal})` : ""}` },
     { id: "subscribers", label: `Subscribers${subscribersTotal ? ` (${subscribersTotal})` : ""}` },
+    { id: "analytics",   label: "📊 Analytics" },
     { id: "logs",        label: "Logs" },
   ];
 
@@ -1242,6 +1271,11 @@ export function AdminDashboard() {
                       </td>
                       <td className="border border-white/10 p-2">
                         <a href={`/product/${product.slug}`} target="_blank" className="text-amber-200 hover:text-amber-100">{product.name}</a>
+                        {(productClicks[product.slug] ?? 0) > 0 && (
+                          <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-blue-400/10 border border-blue-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">
+                            🖱 {productClicks[product.slug]}
+                          </span>
+                        )}
                       </td>
                       <td className="border border-white/10 p-2 text-center text-white/80">₹{Number(product.price).toFixed(0)}</td>
                       <td className="border border-white/10 p-2 text-center text-white/80">{Number(product.rating).toFixed(1)}</td>
@@ -1658,6 +1692,119 @@ export function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* ── Analytics tab ── */}
+      {tab === "analytics" ? (
+        <div className="rounded-xl border border-white/[0.08] bg-[#16161e] p-6 text-white space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">📊 Analytics</h2>
+            <button onClick={() => void fetchAnalytics()} disabled={analyticsLoading} className="text-sm font-semibold text-amber-200 transition hover:text-amber-100 disabled:opacity-50">
+              {analyticsLoading ? "Loading…" : "Refresh"}
+            </button>
+          </div>
+
+          {analyticsLoading && !analyticsData ? (
+            <p className="text-sm text-white/40">Loading analytics…</p>
+          ) : analyticsData ? (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {([
+                  { label: "Today",    value: analyticsData.summary.today },
+                  { label: "7 Days",   value: analyticsData.summary.week },
+                  { label: "30 Days",  value: analyticsData.summary.month },
+                  { label: "All Time", value: analyticsData.summary.allTime },
+                ] as { label: string; value: number }[]).map(s => (
+                  <div key={s.label} className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 text-center">
+                    <p className="text-2xl font-bold text-[#FF9900]">{s.value.toLocaleString("en-IN")}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-widest text-white/35">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Top products */}
+              {analyticsData.topProducts.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-[13px] font-bold uppercase tracking-widest text-white/40">Top Products</h3>
+                  <div className="space-y-1.5">
+                    {analyticsData.topProducts.map((p, i) => {
+                      const max = analyticsData.topProducts[0]?.clicks ?? 1;
+                      const pct = Math.round((Number(p.clicks) / Number(max)) * 100);
+                      return (
+                        <div key={p.slug} className="flex items-center gap-3 rounded-lg bg-white/[0.03] px-3 py-2">
+                          <span className="w-5 shrink-0 text-[11px] font-bold text-white/30">#{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate text-[13px] font-semibold text-white/80">
+                              {p.productName ?? p.slug}
+                            </p>
+                            {p.categoryName && <p className="text-[11px] text-white/30">{p.categoryName}</p>}
+                            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                              <div className="h-full rounded-full bg-[#FF9900]/60" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-[13px] font-bold text-[#FF9900]">{Number(p.clicks).toLocaleString("en-IN")}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Category breakdown */}
+              {analyticsData.byCategory.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-[13px] font-bold uppercase tracking-widest text-white/40">By Category</h3>
+                  <div className="space-y-1.5">
+                    {analyticsData.byCategory.slice(0, 10).map(c => {
+                      const max = analyticsData.byCategory[0]?.clicks ?? 1;
+                      const pct = Math.round((Number(c.clicks) / Number(max)) * 100);
+                      return (
+                        <div key={c.categoryName} className="flex items-center gap-3">
+                          <span className="w-36 shrink-0 truncate text-[12px] text-white/60">{c.categoryName}</span>
+                          <div className="flex-1 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                            <div className="h-full rounded-full bg-blue-400/50" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="w-10 text-right text-[12px] font-semibold text-white/60">{Number(c.clicks)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 30-day daily chart */}
+              {analyticsData.daily.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-[13px] font-bold uppercase tracking-widest text-white/40">Last 30 Days</h3>
+                  <div className="flex items-end gap-0.5 h-24 rounded-xl bg-white/[0.03] p-3">
+                    {(() => {
+                      const maxClicks = Math.max(...analyticsData.daily.map(d => Number(d.clicks)), 1);
+                      return analyticsData.daily.map(d => (
+                        <div
+                          key={d.date}
+                          title={`${d.date}: ${d.clicks} clicks`}
+                          className="flex-1 min-w-[4px] rounded-t bg-[#FF9900]/60 hover:bg-[#FF9900] transition-colors cursor-default"
+                          style={{ height: `${Math.max(4, Math.round((Number(d.clicks) / maxClicks) * 100))}%` }}
+                        />
+                      ));
+                    })()}
+                  </div>
+                  <div className="mt-1 flex justify-between text-[10px] text-white/25">
+                    <span>{analyticsData.daily[0]?.date}</span>
+                    <span>{analyticsData.daily[analyticsData.daily.length - 1]?.date}</span>
+                  </div>
+                </div>
+              )}
+
+              {analyticsData.summary.allTime === 0 && (
+                <p className="text-sm text-white/40">No clicks recorded yet. Clicks are tracked when visitors use affiliate links.</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-white/40">Click Refresh to load analytics.</p>
           )}
         </div>
       ) : null}
