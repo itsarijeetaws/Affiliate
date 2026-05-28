@@ -26,6 +26,7 @@ type Product = {
   slug: string;
   imageUrl: string;
   price: number;
+  mrp?: number | null;
   rating: number;
   amazonAsin?: string;
 };

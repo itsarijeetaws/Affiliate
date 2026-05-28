@@ -10,6 +10,7 @@ type Product = {
   slug: string;
   imageUrl: string;
   price: number | string;
+  mrp?: number | string | null;
   rating: number | string;
   amazonAsin?: string;
 };
@@ -106,6 +107,8 @@ export function CategoryCarousel({
         >
           {products.map((p, idx) => {
             const price = Number(p.price);
+            const mrp = Number(p.mrp ?? 0);
+            const discount = mrp > price && price > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;
             const rating = Number(p.rating);
             return (
               <Link
@@ -122,6 +125,12 @@ export function CategoryCarousel({
                       style={{ background: accent }}
                     >
                       {idx + 1}
+                    </span>
+                  )}
+                  {/* Discount badge */}
+                  {discount >= 5 && idx >= 3 && (
+                    <span className="absolute left-2 top-2 z-10 rounded-full bg-[#e05252]/90 px-1.5 py-0.5 text-[9px] font-black text-white shadow-sm">
+                      -{discount}%
                     </span>
                   )}
                   {p.imageUrl ? (
@@ -152,12 +161,19 @@ export function CategoryCarousel({
                     {p.name}
                   </p>
                   <div className="mt-2 flex items-center justify-between gap-1">
-                    <p
-                      className="text-[13px] font-bold truncate"
-                      style={{ color: accent }}
-                    >
-                      {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Check →"}
-                    </p>
+                    <div className="min-w-0">
+                      <p
+                        className="text-[13px] font-bold truncate"
+                        style={{ color: accent }}
+                      >
+                        {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Check →"}
+                      </p>
+                      {discount >= 5 && (
+                        <p className="text-[10px] text-gray-400 dark:text-white/25 line-through leading-none">
+                          ₹{mrp.toLocaleString("en-IN")}
+                        </p>
+                      )}
+                    </div>
                     {rating > 0 && (
                       <span className="flex items-center gap-0.5 shrink-0 text-[10px] font-bold text-gray-400 dark:text-white/35">
                         <svg className="h-2.5 w-2.5 fill-[#FF9900]" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.122-6.545L.488 6.91l6.566-.955L10 0l2.946 5.955 6.566.955-4.756 4.635 1.122 6.545z"/></svg>

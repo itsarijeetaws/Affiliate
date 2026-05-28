@@ -430,6 +430,7 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
 
     try {
       const price     = parseFloat(row["price"] || "0") || 0;
+      const mrp       = parseFloat(row["mrp"] || "0") || 0;
       const rating    = Math.min(5, Math.max(0, parseFloat(row["rating"] || "0") || 0));
       const imageUrl  = row["imageurl"] || row["image_url"] || "";
       const catId     = resolveCatId(row);
@@ -440,7 +441,9 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
 
       const now = new Date();
       await db.insert(schema.products).values({
-        amazonAsin: asin, name: safeName, slug, price: String(price), rating,
+        amazonAsin: asin, name: safeName, slug, price: String(price),
+        mrp: mrp > price ? String(mrp) : null,
+        rating,
         imageUrl, categoryId: catId,
         description: desc,
         affiliateUrl: affUrl,
@@ -452,6 +455,7 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
           name: safeName,
           slug,
           price: String(price),
+          mrp: mrp > price ? String(mrp) : null,
           rating,
           imageUrl,
           categoryId: catId,

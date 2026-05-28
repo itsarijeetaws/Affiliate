@@ -5,8 +5,8 @@ import { clientFetchJson, clientFetchUrl } from "@/lib/api";
 import { AUTH_EVENT_NAME, clearStoredToken, getStoredToken, setStoredToken, type AuthUser } from "@/lib/auth";
 
 type Log = { id: number; event: string; status: string; message: string | null; createdAt: string };
-type Product = { id: number; name: string; slug: string; price: number; rating: number; imageUrl: string; affiliateUrl: string; amazonAsin?: string };
-type EditForm = { name: string; price: string; rating: string; imageUrl: string; affiliateUrl: string; description: string; amazonAsin: string };
+type Product = { id: number; name: string; slug: string; price: number; mrp?: number | null; rating: number; imageUrl: string; affiliateUrl: string; amazonAsin?: string };
+type EditForm = { name: string; price: string; mrp: string; rating: string; imageUrl: string; affiliateUrl: string; description: string; amazonAsin: string };
 type Tab = "fetch" | "pipeline" | "manual" | "import" | "logs" | "products" | "blogs" | "subscribers" | "analytics";
 type FetchedProduct = {
   asin: string; title: string; price: number; mrp: number; rating: number;
@@ -45,7 +45,7 @@ export function AdminDashboard() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importResults, setImportResults] = useState<{ upserted?: number; created?: number; failed: number; total?: number; contentGenerated?: number; contentFailed?: number; results: Array<{ row: number; status: string; name?: string; error?: string }> } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: "", price: "", rating: "", imageUrl: "", affiliateUrl: "", description: "", amazonAsin: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", price: "", mrp: "", rating: "", imageUrl: "", affiliateUrl: "", description: "", amazonAsin: "" });
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkStop, setBulkStop] = useState(false);
   const bulkStopRef = React.useRef(false);
@@ -589,6 +589,7 @@ export function AdminDashboard() {
     setEditForm({
       name: product.name,
       price: String(Number(product.price).toFixed(0)),
+      mrp: product.mrp ? String(Number(product.mrp).toFixed(0)) : "",
       rating: String(Number(product.rating).toFixed(1)),
       imageUrl: product.imageUrl ?? "",
       affiliateUrl: product.affiliateUrl ?? "",
@@ -607,6 +608,7 @@ export function AdminDashboard() {
         body: JSON.stringify({
           name: editForm.name,
           price: editForm.price,
+          mrp: editForm.mrp ? editForm.mrp : null,
           rating: Number(editForm.rating),
           imageUrl: editForm.imageUrl || null,
           affiliateUrl: editForm.affiliateUrl || null,
@@ -1337,6 +1339,16 @@ export function AdminDashboard() {
                                   value={editForm.price}
                                   onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
                                   placeholder="Price"
+                                />
+                              </div>
+                              <div>
+                                <label className="mb-1 block text-[10px] uppercase tracking-widest text-white/35">MRP / Original Price (₹)</label>
+                                <input
+                                  type="number"
+                                  className="w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white"
+                                  value={editForm.mrp}
+                                  onChange={e => setEditForm(f => ({ ...f, mrp: e.target.value }))}
+                                  placeholder="Leave blank if no discount"
                                 />
                               </div>
                               <div>

@@ -30,6 +30,7 @@ export const products = mysqlTable("product", {
   slug: varchar("slug", { length: 500 }).notNull().unique(),
   amazonAsin: varchar("amazon_asin", { length: 20 }).notNull().unique(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
+  mrp: decimal("mrp", { precision: 10, scale: 2 }).default("0"),
   rating: float("rating").notNull().default(4.0),
   imageUrl: text("image_url").notNull(),
   categoryId: int("category_id").notNull(),

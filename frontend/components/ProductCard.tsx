@@ -10,6 +10,7 @@ type Props = {
   imageUrl: string;
   amazonAsin?: string;
   price: number;
+  mrp?: number | string | null;
   rating: number;
 };
 
@@ -50,13 +51,15 @@ function getBadge(rating: number) {
   return null;
 }
 
-export function ProductCard({ name, slug, imageUrl, amazonAsin, price, rating }: Props) {
+export function ProductCard({ name, slug, imageUrl, amazonAsin, price, mrp, rating }: Props) {
   const [imgSrc, setImgSrc] = useState(() => buildImageUrl(imageUrl, amazonAsin));
   const [imgError, setImgError] = useState(false);
   const showImage = hasValidImage(imgSrc) && !imgError;
   const badge = getBadge(rating);
   const r = Number(rating);
   const p = Number(price);
+  const m = Number(mrp ?? 0);
+  const discount = m > p && p > 0 ? Math.round(((m - p) / m) * 100) : 0;
 
   function handleImgError() {
     // Try ASIN-based /P/ fallback before giving up
@@ -71,10 +74,15 @@ export function ProductCard({ name, slug, imageUrl, amazonAsin, price, rating }:
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-gray-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.12)] dark:border-white/[0.07] dark:bg-[#16161e] dark:hover:border-[#FF9900]/20 dark:hover:shadow-[0_20px_60px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,153,0,0.08)]">
 
-      {/* Badge */}
-      {badge && (
-        <div className="absolute left-3 top-3 z-10">
-          {badge === "seller" ? (
+      {/* Badges */}
+      <div className="absolute left-3 top-3 z-10 flex flex-col gap-1">
+        {discount >= 5 && (
+          <span className="badge-deal">
+            {discount}% off
+          </span>
+        )}
+        {badge && !discount && (
+          badge === "seller" ? (
             <span className="badge-seller inline-flex items-center gap-1">
               <Award className="h-2.5 w-2.5" strokeWidth={2.5} />
               Best Seller
@@ -84,9 +92,9 @@ export function ProductCard({ name, slug, imageUrl, amazonAsin, price, rating }:
               <BadgeCheck className="h-2.5 w-2.5" strokeWidth={2.5} />
               Top Rated
             </span>
-          )}
-        </div>
-      )}
+          )
+        )}
+      </div>
 
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-50 dark:bg-[#0f0f18]">
@@ -130,9 +138,16 @@ export function ProductCard({ name, slug, imageUrl, amazonAsin, price, rating }:
           <div>
             <p className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-white/25">Amazon Price</p>
             {p > 0 ? (
-              <p className="text-[20px] font-extrabold leading-none tracking-tight text-[#FF9900]">
-                ₹{p.toLocaleString("en-IN")}
-              </p>
+              <div className="flex items-baseline gap-1.5">
+                <p className="text-[20px] font-extrabold leading-none tracking-tight text-[#FF9900]">
+                  ₹{p.toLocaleString("en-IN")}
+                </p>
+                {discount >= 5 && (
+                  <p className="text-[11px] font-medium leading-none text-gray-400 line-through dark:text-white/25">
+                    ₹{m.toLocaleString("en-IN")}
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="text-[13px] font-semibold leading-none text-[#FF9900]">
                 Check on Amazon
