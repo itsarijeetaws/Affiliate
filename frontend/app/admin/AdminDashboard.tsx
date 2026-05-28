@@ -649,7 +649,8 @@ export function AdminDashboard() {
         return;
       }
       setImportResults(data as typeof importResults);
-      const contentMsg = data.contentGenerated > 0 ? ` | ✓ ${data.contentGenerated} descriptions generated` : "";
+      const contentGenerated = typeof data.contentGenerated === "number" ? data.contentGenerated : 0;
+      const contentMsg = contentGenerated > 0 ? ` | ✓ ${contentGenerated} descriptions generated` : "";
       setMessage(`Import done — ${data.upserted ?? data.created ?? 0} created, ${data.failed} failed${contentMsg}.`);
     } finally {
       setLoading(false);
