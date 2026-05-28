@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sql, eq, inArray, desc, asc, or, like } from "drizzle-orm";
+import { sql, eq, inArray, desc, asc, or, like, getTableColumns } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
@@ -56,7 +56,7 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   } else if (query) {
     // Text search — commission-weighted sort so high-value categories surface first
     const pattern = `%${query}%`;
-    productsResult = await db.select({ ...schema.products })
+    productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
       .where(or(
@@ -70,7 +70,7 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
       .limit(200);
   } else {
     // Default (homepage / all products) — sort by commission rate then rating
-    productsResult = await db.select({ ...schema.products })
+    productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
       .orderBy(
