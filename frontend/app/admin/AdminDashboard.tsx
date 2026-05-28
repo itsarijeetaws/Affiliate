@@ -223,8 +223,8 @@ export function AdminDashboard() {
   const fetchProducts = useCallback(async (slugFilter?: string) => {
     const slug = slugFilter ?? productCategorySlug;
     const url = slug
-      ? clientFetchUrl(`/products?categorySlug=${slug}&limit=1000`)
-      : clientFetchUrl("/products?limit=1000");
+      ? clientFetchUrl(`/products?categorySlug=${slug}&limit=2000`)
+      : clientFetchUrl("/products?limit=2000");
     const response = await fetch(url);
     if (response.ok) {
       setProducts((await response.json()).items);
