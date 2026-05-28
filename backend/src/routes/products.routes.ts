@@ -26,7 +26,7 @@ const parseJsonArray = (val: unknown): string[] => {
 
 productsRouter.get("/", responseCache("products", 180), async (req, res) => {
   const page = Number(req.query.page ?? 1);
-  const limit = Math.min(Number(req.query.limit ?? 12), 1000);
+  const limit = Math.min(Number(req.query.limit ?? 12), 2000);
   const offset = (page - 1) * limit;
   const query = String(req.query.q ?? "").trim().toLowerCase();
   const categorySlug = String(req.query.categorySlug ?? "").trim();
