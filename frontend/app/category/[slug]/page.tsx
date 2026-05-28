@@ -9,7 +9,7 @@ import {
   Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor, Tv,
   ShoppingCart, Award, Shirt, Briefcase, Sparkle, Utensils,
-  Car, Baby, Mouse, Cpu, Heart, Package
+  Car, Baby, Mouse, Cpu, Heart, Package, Pen
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -87,6 +87,10 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
   audio:                   { Icon: Headphones,      color: "#ec4899" },
   tablets:                 { Icon: Smartphone,      color: "#8b5cf6" },
   printers:                { Icon: Cpu,             color: "#64748b" },
+  watches:                 { Icon: Watch,           color: "#d97706" },
+  "mobile-accessories":    { Icon: Smartphone,      color: "#6366f1" },
+  "office-products":       { Icon: Pen,             color: "#475569" },
+  toys:                    { Icon: Gamepad2,        color: "#f59e0b" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900" };

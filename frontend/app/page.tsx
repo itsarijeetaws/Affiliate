@@ -10,7 +10,7 @@ import {
   Gamepad2, Watch, BatteryCharging, Scissors, Camera, Monitor,
   ShoppingCart, TrendingDown, ShieldCheck, RefreshCw, BadgeCheck,
   ArrowRight, Sparkles, Shirt, ShoppingBag, Utensils, Briefcase, Sparkle,
-  Car, Baby, BookOpen, Mouse, Cpu, Tv, Package, Heart
+  Car, Baby, BookOpen, Mouse, Cpu, Tv, Package, Heart, Watch
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -65,6 +65,9 @@ const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string; bg: stri
   audio:                   { Icon: Headphones,      color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
   tablets:                 { Icon: Smartphone,      color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
   printers:                { Icon: Cpu,             color: "#64748b", bg: "rgba(100,116,139,0.1)" },
+  watches:                 { Icon: Watch,           color: "#d97706", bg: "rgba(217,119,6,0.1)" },
+  "mobile-accessories":    { Icon: Smartphone,      color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+  "office-products":       { Icon: Cpu,             color: "#475569", bg: "rgba(71,85,105,0.1)" },
 };
 function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900", bg: "rgba(255,153,0,0.1)" };
@@ -80,19 +83,30 @@ const TRUST = [
 
 // ── Carousels to show ────────────────────────────────────────
 // Ordered by commission rate (high → low) so best-earning categories appear first
+// Ordered strictly by Amazon IN commission rate (high → low)
+// 10%: Fashion, Bags, Beauty/Grooming, Watches
+//  5%: Kitchen, Books, Toys, Office
+// 4.7%: Baby, Fitness
+//  4%: Mobile Accessories
+// 3.5%: Cameras, Smartwatches, Laptops, Monitors
+// 1%/0%: Smartphones (most models 0%), Gaming consoles (0%)
 const CAROUSEL_CONFIGS = [
-  { slug: "womens-fashion",      label: "Women's Fashion Picks",        accent: "#f43f5e", badge: "Trending" },
-  { slug: "mens-fashion",        label: "Men's Fashion Picks",          accent: "#0ea5e9", badge: "Trending" },
-  { slug: "bags-luggage",        label: "Top Bags & Luggage",           accent: "#a855f7", badge: "" },
-  { slug: "kitchen-appliances",  label: "Kitchen Appliances",           accent: "#10b981", badge: "Hot" },
-  { slug: "grooming",            label: "Grooming & Beauty",            accent: "#d97706", badge: "Trending" },
-  { slug: "fitness",             label: "Fitness & Sports",             accent: "#f59e0b", badge: "" },
-  { slug: "cameras",             label: "Top Cameras",                  accent: "#64748b", badge: "" },
-  { slug: "smartwatches",        label: "Top Smartwatches",             accent: "#34d399", badge: "" },
-  { slug: "smartphones",         label: "Best Sellers in Smartphones",  accent: "#a78bfa", badge: "Hot" },
-  { slug: "laptops",             label: "Top Laptops",                  accent: "#38bdf8", badge: "Popular" },
-  { slug: "headphones",          label: "Best Headphones & Earbuds",    accent: "#f472b6", badge: "" },
-  { slug: "gaming",              label: "Gaming Bestsellers",           accent: "#f87171", badge: "Trending" },
+  { slug: "womens-fashion",       label: "Women's Fashion Picks",        accent: "#f43f5e", badge: "Trending" },
+  { slug: "mens-fashion",         label: "Men's Fashion Picks",          accent: "#0ea5e9", badge: "Trending" },
+  { slug: "bags-luggage",         label: "Top Bags & Luggage",           accent: "#a855f7", badge: "" },
+  { slug: "grooming",             label: "Grooming & Beauty",            accent: "#d97706", badge: "Trending" },
+  { slug: "kitchen-appliances",   label: "Kitchen Appliances",           accent: "#10b981", badge: "Hot" },
+  { slug: "books",                label: "Best Books",                   accent: "#0891b2", badge: "" },
+  { slug: "toys",                 label: "Toys & Games",                 accent: "#f59e0b", badge: "" },
+  { slug: "baby-kids",            label: "Baby & Kids",                  accent: "#fb7185", badge: "" },
+  { slug: "fitness",              label: "Fitness & Sports",             accent: "#22c55e", badge: "" },
+  { slug: "mobile-accessories",   label: "Mobile Accessories",           accent: "#6366f1", badge: "" },
+  { slug: "cameras",              label: "Top Cameras",                  accent: "#64748b", badge: "" },
+  { slug: "laptops",              label: "Top Laptops",                  accent: "#38bdf8", badge: "Popular" },
+  { slug: "headphones",           label: "Headphones & Earbuds",         accent: "#f472b6", badge: "" },
+  { slug: "smartwatches",         label: "Top Smartwatches",             accent: "#34d399", badge: "" },
+  { slug: "smartphones",          label: "Smartphones",                  accent: "#a78bfa", badge: "" },
+  { slug: "gaming",               label: "Gaming Accessories",           accent: "#f87171", badge: "" },
 ] as const;
 
 export default async function HomePage() {

@@ -35,23 +35,33 @@ interface Bracket { max: number; label: string }
 interface CatConfig { slug: string; name: string; brackets: Bracket[] }
 
 const CATEGORY_CONFIGS: CatConfig[] = [
-  // High-commission fashion first
-  { slug: "womens-fashion",     name: "Women's Fashion",      brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
-  { slug: "mens-fashion",       name: "Men's Fashion",        brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
-  { slug: "bags-luggage",       name: "Bags & Luggage",       brackets: [{ max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }, { max: 5000, label: "5,000" }] },
-  { slug: "grooming",           name: "Grooming & Beauty",    brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
-  { slug: "kitchen-appliances", name: "Kitchen Appliances",   brackets: [{ max: 2000, label: "2,000" }, { max: 5000, label: "5,000" }, { max: 10000, label: "10,000" }] },
-  // Electronics
-  { slug: "smartphones",        name: "Smartphones",          brackets: [{ max: 10000, label: "10,000" }, { max: 20000, label: "20,000" }, { max: 30000, label: "30,000" }, { max: 50000, label: "50,000" }] },
-  { slug: "laptops",            name: "Laptops",              brackets: [{ max: 30000, label: "30,000" }, { max: 50000, label: "50,000" }, { max: 70000, label: "70,000" }, { max: 100000, label: "1,00,000" }] },
-  { slug: "headphones",         name: "Headphones & Earbuds", brackets: [{ max: 500, label: "500" }, { max: 1500, label: "1,500" }, { max: 3000, label: "3,000" }, { max: 5000, label: "5,000" }] },
-  { slug: "smartwatches",       name: "Smartwatches",         brackets: [{ max: 3000, label: "3,000" }, { max: 5000, label: "5,000" }, { max: 15000, label: "15,000" }] },
-  { slug: "fitness",            name: "Fitness & Sports",     brackets: [{ max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }, { max: 8000, label: "8,000" }] },
-  { slug: "gaming",             name: "Gaming",               brackets: [{ max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }, { max: 8000, label: "8,000" }] },
-  { slug: "cameras",            name: "Cameras",              brackets: [{ max: 15000, label: "15,000" }, { max: 30000, label: "30,000" }, { max: 50000, label: "50,000" }] },
-  { slug: "smart-tvs",          name: "Smart TVs",            brackets: [{ max: 15000, label: "15,000" }, { max: 25000, label: "25,000" }, { max: 40000, label: "40,000" }] },
-  { slug: "monitors",           name: "Monitors",             brackets: [{ max: 8000, label: "8,000" }, { max: 15000, label: "15,000" }, { max: 25000, label: "25,000" }] },
-  { slug: "power-banks",        name: "Power Banks",          brackets: [{ max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  // 10% commission — fashion, bags, beauty, watches
+  { slug: "womens-fashion",       name: "Women's Fashion",        brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  { slug: "mens-fashion",         name: "Men's Fashion",          brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  { slug: "bags-luggage",         name: "Bags & Luggage",         brackets: [{ max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }, { max: 5000, label: "5,000" }] },
+  { slug: "grooming",             name: "Grooming & Beauty",      brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  // 5% commission — kitchen, books, toys, office
+  { slug: "kitchen-appliances",   name: "Kitchen Appliances",     brackets: [{ max: 2000, label: "2,000" }, { max: 5000, label: "5,000" }, { max: 10000, label: "10,000" }] },
+  { slug: "books",                name: "Books",                  brackets: [{ max: 300, label: "300" }, { max: 500, label: "500" }, { max: 1000, label: "1,000" }] },
+  { slug: "toys",                 name: "Toys & Games",           brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  { slug: "office-products",      name: "Office Products",        brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }] },
+  // 4.7% commission — baby, fitness, sports
+  { slug: "baby-kids",            name: "Baby & Kids",            brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  { slug: "fitness",              name: "Fitness & Sports",       brackets: [{ max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }, { max: 8000, label: "8,000" }] },
+  // 4% commission — mobile accessories
+  { slug: "mobile-accessories",   name: "Mobile Accessories",     brackets: [{ max: 500, label: "500" }, { max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  // 3.5% commission — cameras, laptops, monitors, smartwatches
+  { slug: "cameras",              name: "Cameras",                brackets: [{ max: 15000, label: "15,000" }, { max: 30000, label: "30,000" }, { max: 50000, label: "50,000" }] },
+  { slug: "laptops",              name: "Laptops",                brackets: [{ max: 30000, label: "30,000" }, { max: 50000, label: "50,000" }, { max: 70000, label: "70,000" }, { max: 100000, label: "1,00,000" }] },
+  { slug: "monitors",             name: "Monitors",               brackets: [{ max: 8000, label: "8,000" }, { max: 15000, label: "15,000" }, { max: 25000, label: "25,000" }] },
+  { slug: "smartwatches",         name: "Smartwatches",           brackets: [{ max: 3000, label: "3,000" }, { max: 5000, label: "5,000" }, { max: 15000, label: "15,000" }] },
+  { slug: "smart-tvs",            name: "Smart TVs",              brackets: [{ max: 15000, label: "15,000" }, { max: 25000, label: "25,000" }, { max: 40000, label: "40,000" }] },
+  // Headphones — only ₹3000+ (below ₹3000 MRP = 0% commission)
+  { slug: "headphones",           name: "Headphones & Earbuds",   brackets: [{ max: 5000, label: "5,000" }, { max: 10000, label: "10,000" }] },
+  // 1%/0% — kept for SEO traffic only
+  { slug: "smartphones",          name: "Smartphones",            brackets: [{ max: 10000, label: "10,000" }, { max: 20000, label: "20,000" }, { max: 30000, label: "30,000" }] },
+  { slug: "power-banks",          name: "Power Banks",            brackets: [{ max: 1000, label: "1,000" }, { max: 2000, label: "2,000" }] },
+  { slug: "gaming",               name: "Gaming Accessories",     brackets: [{ max: 1000, label: "1,000" }, { max: 3000, label: "3,000" }] },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
