@@ -478,6 +478,138 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
   res.json({ upserted: created, failed, total: results.length, results });
 });
 
+// ─── Auto-Categorize ─────────────────────────────────────────────────────────
+// POST /automation/auto-categorize
+// body: { dryRun?: boolean, categorySlug?: string }
+// Uses Claude Haiku to verify/fix product categories in batches of 8.
+
+automationRouter.post("/auto-categorize", async (req, res) => {
+  const dryRun: boolean = req.body?.dryRun !== false; // default true (safe)
+  const categorySlugFilter: string | undefined = req.body?.categorySlug || undefined;
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    res.status(500).json({ ok: false, error: "ANTHROPIC_API_KEY not set" });
+    return;
+  }
+
+  try {
+    // Load all categories
+    const allCats = await db.select().from(schema.categories);
+    const slugList = allCats.map(c => c.slug).join(", ");
+    const catById  = new Map(allCats.map(c => [c.id, c]));
+    const catBySlug = new Map(allCats.map(c => [c.slug, c]));
+
+    // Load products (optionally filtered by category)
+    let products: { id: number; name: string; categoryId: number }[] = [];
+    if (categorySlugFilter) {
+      const filterCat = catBySlug.get(categorySlugFilter);
+      if (!filterCat) {
+        res.status(400).json({ ok: false, error: `Unknown categorySlug: ${categorySlugFilter}` });
+        return;
+      }
+      const rows = await db
+        .select({ id: schema.products.id, name: schema.products.name, categoryId: schema.products.categoryId })
+        .from(schema.products)
+        .where(eq(schema.products.categoryId, filterCat.id))
+        .limit(300);
+      products = rows;
+    } else {
+      const rows = await db
+        .select({ id: schema.products.id, name: schema.products.name, categoryId: schema.products.categoryId })
+        .from(schema.products)
+        .limit(300);
+      products = rows;
+    }
+
+    const BATCH = 8;
+    const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    type ChangeItem = { id: number; name: string; from: string; to: string; toId: number };
+    const changes: ChangeItem[] = [];
+    let unchanged = 0;
+    let failed = 0;
+
+    for (let i = 0; i < products.length; i += BATCH) {
+      const batch = products.slice(i, i + BATCH);
+      const input = JSON.stringify(batch.map(p => ({ id: p.id, name: p.name })));
+
+      const prompt =
+        `You are a product categorizer for an Indian Amazon affiliate site.\n` +
+        `For each product, pick the single best category slug from this exact list:\n` +
+        `${slugList}\n\n` +
+        `Products:\n${input}\n\n` +
+        `Reply ONLY with a JSON array: [{"id":123,"slug":"the-slug"},...]\n` +
+        `No explanation. No markdown. Only the JSON array.`;
+
+      try {
+        const resp = await fetch(ANTHROPIC_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5",
+            max_tokens: 300,
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+
+        if (!resp.ok) { failed += batch.length; continue; }
+
+        const data = await resp.json() as { content: Array<{ type: string; text?: string }> };
+        const text = (data.content ?? []).filter(b => b.type === "text").map(b => b.text ?? "").join("");
+        const s = text.indexOf("["), e = text.lastIndexOf("]");
+        if (s === -1 || e === -1) { failed += batch.length; continue; }
+
+        const suggestions = JSON.parse(text.slice(s, e + 1)) as Array<{ id: number; slug: string }>;
+
+        for (const sug of suggestions) {
+          const product = batch.find(p => p.id === sug.id);
+          if (!product) continue;
+          const sugCat = catBySlug.get(sug.slug);
+          if (!sugCat) { failed++; continue; }
+          if (sugCat.id === product.categoryId) {
+            unchanged++;
+          } else {
+            changes.push({
+              id: product.id,
+              name: product.name,
+              from: catById.get(product.categoryId)?.slug ?? "unknown",
+              to: sug.slug,
+              toId: sugCat.id,
+            });
+          }
+        }
+      } catch {
+        failed += batch.length;
+      }
+
+      // 600 ms rate-limit delay between batches
+      if (i + BATCH < products.length) {
+        await new Promise(r => setTimeout(r, 600));
+      }
+    }
+
+    // Apply if not dry-run
+    if (!dryRun && changes.length > 0) {
+      for (const c of changes) {
+        await db.update(schema.products)
+          .set({ categoryId: c.toId, updatedAt: new Date() })
+          .where(eq(schema.products.id, c.id));
+      }
+      await cacheClient.del("products:/products");
+      await logAuto("auto-categorize", "success", { changed: changes.length, unchanged, failed, dryRun: false });
+    }
+
+    res.json({ ok: true, dryRun, total: products.length, changed: changes.length, unchanged, failed, changes });
+  } catch (error) {
+    await logAuto("auto-categorize", "failed", { dryRun }, String(error));
+    res.status(500).json({ ok: false, error: String(error) });
+  }
+});
+
 // ─── Logs ─────────────────────────────────────────────────────────────────────
 
 automationRouter.get("/logs", async (req, res) => {

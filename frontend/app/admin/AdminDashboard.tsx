@@ -58,6 +58,12 @@ export function AdminDashboard() {
     } catch { return new Set(); }
   });
 
+  // Auto-categorize state
+  type AutoCatChange = { id: number; name: string; from: string; to: string };
+  type AutoCatResult = { dryRun: boolean; total: number; changed: number; unchanged: number; failed: number; changes: AutoCatChange[] };
+  const [autoCatRunning, setAutoCatRunning] = useState(false);
+  const [autoCatResults, setAutoCatResults] = useState<AutoCatResult | null>(null);
+
   // Fetch ASIN state
   const [fetchAsin, setFetchAsin] = useState("");
   const [fetchedProduct, setFetchedProduct] = useState<FetchedProduct | null>(null);
@@ -390,6 +396,31 @@ export function AdminDashboard() {
       setMessage(`Pipeline complete. ${asinList.length} ASINs processed.`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runAutoCategorize(dryRun: boolean) {
+    const key = localStorage.getItem("automation_api_key") ?? automationKey;
+    if (!key) { setMessage("Enter your Automation API key first"); return; }
+    setAutoCatRunning(true);
+    setMessage(dryRun ? "Analyzing categories (dry-run)…" : "Applying category changes…");
+    try {
+      const body: Record<string, unknown> = { dryRun };
+      if (productCategorySlug) body.categorySlug = productCategorySlug;
+      const response = await fetch(clientFetchUrl("/automation/auto-categorize"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-automation-api-key": key },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json() as Record<string, unknown>;
+      if (!response.ok) { setMessage(String(data.error ?? "Auto-categorize failed")); return; }
+      setAutoCatResults(data as unknown as AutoCatResult);
+      if (!dryRun) { setMessage(`✓ Applied: ${data.changed} products re-categorized`); void fetchProducts(); }
+      else { setMessage(`Analysis done: ${data.changed} changes suggested, ${data.unchanged} already correct`); }
+    } catch (err) {
+      setMessage(`Error: ${String(err)}`);
+    } finally {
+      setAutoCatRunning(false);
     }
   }
 
@@ -1075,6 +1106,13 @@ export function AdminDashboard() {
               <button onClick={() => void fetchProducts()} className="text-sm font-semibold text-amber-200 transition hover:text-amber-100">
                 Refresh
               </button>
+              <button
+                onClick={() => { setAutoCatResults(null); void runAutoCategorize(true); }}
+                disabled={autoCatRunning || loading}
+                className="rounded-full border border-blue-400/30 bg-blue-400/10 px-4 py-1.5 text-sm font-semibold text-blue-300 transition hover:bg-blue-400/20 disabled:opacity-40"
+              >
+                {autoCatRunning ? "Analyzing…" : "🧠 Auto-Categorize"}
+              </button>
               {bulkRunning ? (
                 <button
                   onClick={stopBulk}
@@ -1117,6 +1155,65 @@ export function AdminDashboard() {
               <p className="truncate text-[11px] text-white/35">{bulkProgress.current}</p>
             </div>
           )}
+          {/* Auto-categorize results panel */}
+          {autoCatResults && (
+            <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-white/70">
+                  {autoCatResults.dryRun ? "📋 Dry-Run Results" : "✅ Applied"} — {autoCatResults.total} products checked
+                </span>
+                <div className="flex gap-4 text-xs">
+                  <span className="text-amber-300 font-semibold">{autoCatResults.changed} to change</span>
+                  <span className="text-white/40">{autoCatResults.unchanged} correct</span>
+                  {autoCatResults.failed > 0 && <span className="text-rose-400">{autoCatResults.failed} failed</span>}
+                </div>
+              </div>
+              {autoCatResults.changes.length === 0 ? (
+                <p className="text-sm text-emerald-300/80">✓ All products are in the correct category</p>
+              ) : (
+                <>
+                  <div className="max-h-56 overflow-y-auto rounded-lg border border-white/[0.06]">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-white/[0.05] sticky top-0">
+                          <th className="p-2 text-left text-white/40 font-semibold">Product</th>
+                          <th className="p-2 text-left text-white/40 font-semibold w-36">Current</th>
+                          <th className="p-2 text-left text-white/40 font-semibold w-36">→ Suggested</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {autoCatResults.changes.map(c => (
+                          <tr key={c.id} className="border-t border-white/[0.04]">
+                            <td className="p-2 text-white/70 max-w-[220px] truncate">{c.name}</td>
+                            <td className="p-2 text-rose-300/70 font-mono text-[11px]">{c.from}</td>
+                            <td className="p-2 text-emerald-300 font-mono text-[11px]">{c.to}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {autoCatResults.dryRun && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => void runAutoCategorize(false)}
+                        disabled={autoCatRunning}
+                        className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-40"
+                      >
+                        ✓ Apply {autoCatResults.changed} changes
+                      </button>
+                      <button
+                        onClick={() => setAutoCatResults(null)}
+                        className="text-xs text-white/35 hover:text-white/60 transition"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           <div className="mt-5 overflow-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
