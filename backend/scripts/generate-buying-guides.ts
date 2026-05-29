@@ -1,5 +1,5 @@
 /**
- * Generate buying-guide blog posts: "Best [Category] Under ₹X in India 2025"
+ * Generate buying-guide blog posts: "Best [Category] Under ₹X in India 2026"
  * Each guide pulls real products from DB, writes 700-900 word HTML via Claude Haiku,
  * and publishes directly to the blogpost table.
  *
@@ -133,7 +133,7 @@ async function generateGuideHtml(
     messages: [{
       role: "user",
       content:
-        `Write a 700-900 word buying guide: "Best ${catName} Under ${priceDisp} in India (2025)"\n\n` +
+        `Write a 700-900 word buying guide: "Best ${catName} Under ${priceDisp} in India (2026)"\n\n` +
         `Products to feature (use all of them):\n${productList}\n\n` +
         `Structure:\n` +
         `1. Opening paragraph: why ${priceDisp} is a good budget for ${catName.toLowerCase()} in India\n` +
@@ -183,8 +183,8 @@ async function main() {
 
     for (const bracket of cat.brackets) {
       total++;
-      const slug = toSlug(`best-${cat.slug}-under-${bracket.label.replace(/,/g, "")}-india-2025`);
-      const title = `Best ${cat.name} Under ₹${bracket.label} in India (2025)`;
+      const slug = toSlug(`best-${cat.slug}-under-${bracket.label.replace(/,/g, "")}-india-2026`);
+      const title = `Best ${cat.name} Under ₹${bracket.label} in India (2026)`;
       const label = `[${cat.name} < ₹${bracket.label}]`;
 
       // Skip if already exists with sufficient content (≥5800 chars = complete guide)
@@ -234,7 +234,7 @@ async function main() {
           `Expert picks for the best ${cat.name.toLowerCase()} under ₹${bracket.label} in India. ` +
           `Top ${products.length} reviewed with pros, cons and live Amazon India pricing.`;
 
-        const seoTitle  = `Best ${cat.name} Under ₹${bracket.label} in India 2025 — Top Picks | BestBuysIndia`;
+        const seoTitle  = `Best ${cat.name} Under ₹${bracket.label} in India 2026 — Top Picks | BestBuysIndia`;
         const seoDesc   = `Find the best ${cat.name.toLowerCase()} under ₹${bracket.label} in India. ` +
           `Our experts reviewed ${products.length} top-rated options from Amazon India with honest analysis and value tips.`;
 
