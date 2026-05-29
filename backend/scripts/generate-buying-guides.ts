@@ -122,7 +122,7 @@ async function generateGuideHtml(
 
   const msg = await ai.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 2500,
+    max_tokens: 4096,
     system:
       "You write SEO-optimized buying guide blog posts in HTML for BestBuysIndia — an Amazon India affiliate site. " +
       "Write natural, helpful content for Indian buyers. " +
@@ -194,7 +194,7 @@ async function main() {
       );
       if ((existing as mysql.RowDataPacket[]).length > 0) {
         const len = (existing as mysql.RowDataPacket[])[0].len as number;
-        if (len >= 5800) {
+        if (len >= 4500) {
           console.log(`  ↷  ${label} already exists (${len} chars) — skip`);
           skipped++;
           continue;
