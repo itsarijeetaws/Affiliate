@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     if (match) label = match.name;
   } catch { /* fallback to slug */ }
   return buildMetadata({
-    title: `Best ${label} in India 2025 — Reviews & Prices`,
+    title: `Best ${label} in India 2026 — Reviews & Prices`,
     description: `Top-rated ${label} with live Amazon India pricing. Expert reviews, honest pros & cons, and value-for-money picks for Indian buyers.`,
     path: `/category/${slug}`
   });

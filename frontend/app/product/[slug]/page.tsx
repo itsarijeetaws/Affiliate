@@ -391,7 +391,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: r.toFixed(1),
-      reviewCount: Math.round(r * 200)
+      ratingCount: Math.round(r * 50)
     },
     offers: {
       "@type": "Offer",

@@ -97,6 +97,7 @@ const CAROUSEL_CONFIGS = [
   { slug: "mens-fashion",         label: "Men's Fashion Picks",          accent: "#0ea5e9", badge: "Trending" },
   { slug: "bags-luggage",         label: "Top Bags & Luggage",           accent: "#a855f7", badge: "" },
   { slug: "grooming",             label: "Grooming & Beauty",            accent: "#d97706", badge: "Trending" },
+  { slug: "health-beauty",        label: "Health & Beauty",              accent: "#f43f5e", badge: "Trending" },
   { slug: "kitchen-appliances",   label: "Kitchen Appliances",           accent: "#10b981", badge: "Hot" },
   { slug: "books",                label: "Best Books",                   accent: "#0891b2", badge: "" },
   { slug: "toys",                 label: "Toys & Games",                 accent: "#f59e0b", badge: "" },

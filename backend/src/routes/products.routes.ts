@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sql, eq, inArray, desc, asc, or, like, getTableColumns } from "drizzle-orm";
+import { sql, eq, inArray, desc, asc, or, like, getTableColumns, and } from "drizzle-orm";
 import { db } from "../lib/db.js";
 import * as schema from "../db/schema.js";
 import { requireAdminAuth } from "../middleware/auth.js";
@@ -55,7 +55,10 @@ productsRouter.get("/", async (req, res, next) => {
   } else if (filterCategoryId !== null) {
     // Category filter
     productsResult = await db.select().from(schema.products)
-      .where(eq(schema.products.categoryId, filterCategoryId))
+      .where(and(
+        eq(schema.products.categoryId, filterCategoryId),
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
+      ))
       .orderBy(sortRandom ? sql`RAND()` : desc(schema.products.rating), sortRandom ? sql`RAND()` : desc(schema.products.updatedAt))
       .limit(sortRandom ? limit : 500);
   } else if (query) {
@@ -64,9 +67,12 @@ productsRouter.get("/", async (req, res, next) => {
     productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
-      .where(or(
-        like(schema.products.name, pattern),
-        like(schema.products.description, pattern)
+      .where(and(
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        or(
+          like(schema.products.name, pattern),
+          like(schema.products.description, pattern)
+        )
       ))
       .orderBy(
         desc(schema.categories.commissionRate),
@@ -78,6 +84,7 @@ productsRouter.get("/", async (req, res, next) => {
     productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+      .where(sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`)
       .orderBy(
         desc(schema.categories.commissionRate),
         desc(schema.products.rating)

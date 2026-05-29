@@ -33,6 +33,7 @@ export function CategoryCarousel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
+  const isPausedRef = useRef(false);
 
   const update = useCallback(() => {
     const el = scrollRef.current;
@@ -44,13 +45,27 @@ export function CategoryCarousel({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    // slight delay to let layout settle
+
     const t = setTimeout(update, 80);
     el.addEventListener("scroll", update, { passive: true });
     const ro = new ResizeObserver(update);
     ro.observe(el);
+
+    // Auto-slide: advance one card (~176px) every 3.5 s; wrap to start when at end
+    const CARD_WIDTH = 176;
+    const interval = setInterval(() => {
+      if (isPausedRef.current || !el) return;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
+      if (atEnd) {
+        el.scrollTo({ left: 0, behavior: "instant" as ScrollBehavior });
+      } else {
+        el.scrollBy({ left: CARD_WIDTH, behavior: "smooth" });
+      }
+    }, 3500);
+
     return () => {
       clearTimeout(t);
+      clearInterval(interval);
       el.removeEventListener("scroll", update);
       ro.disconnect();
     };
@@ -63,7 +78,11 @@ export function CategoryCarousel({
   if (!products.length) return null;
 
   return (
-    <section className="rounded-2xl border border-gray-200/70 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-5 sm:p-6">
+    <section
+      className="rounded-2xl border border-gray-200/70 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-5 sm:p-6"
+      onMouseEnter={() => { isPausedRef.current = true; }}
+      onMouseLeave={() => { isPausedRef.current = false; }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
