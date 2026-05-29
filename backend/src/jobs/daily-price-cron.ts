@@ -13,6 +13,8 @@ import {
   postGuideToChannel,
   postDealToChannel,
 } from "../services/telegram.service.js";
+import { isPinterestConfigured } from "../services/pinterest.service.js";
+import { runPinterestAutoPost } from "./pinterest-auto-post.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const POSTED_FILE = path.resolve(__dirname, "../../.telegram-posted.json");
@@ -133,6 +135,28 @@ export function startDailyPriceCron(): void {
         status: "failed",
         payload: {},
         message: String(error)
+      });
+    }
+  });
+
+  // Pinterest auto-post (default every 6 hours, configurable via PINTEREST_CRON)
+  const pinterestCron = process.env.PINTEREST_CRON ?? "0 */6 * * *";
+  cron.schedule(pinterestCron, async () => {
+    if (!isPinterestConfigured()) return;
+    try {
+      const result = await runPinterestAutoPost();
+      await db.insert(schema.automationLogs).values({
+        event: "pinterest-post",
+        status: result.failed > 0 && result.posted === 0 ? "failed" : "success",
+        payload: result,
+      });
+    } catch (error) {
+      console.error("[Cron] Pinterest post failed:", String(error));
+      await db.insert(schema.automationLogs).values({
+        event: "pinterest-post",
+        status: "failed",
+        payload: {},
+        message: String(error),
       });
     }
   });

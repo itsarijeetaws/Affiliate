@@ -19,6 +19,8 @@ import { runPriceUpdateJob } from "../services/price-update.service.js";
 import { fetchAmazonProduct } from "../services/product-fetch.service.js";
 import { toSlug } from "../utils/slug.js";
 import { getWordPressIntegrationStatus } from "../services/wordpress.service.js";
+import { isPinterestConfigured, getPinterestIntegrationStatus } from "../services/pinterest.service.js";
+import { runPinterestAutoPost } from "../jobs/pinterest-auto-post.js";
 
 const parseJsonArray = (val: unknown): string[] => {
   if (Array.isArray(val)) return val;
@@ -155,10 +157,33 @@ automationRouter.get("/status", async (_req, res) => {
       gemini: getGeminiIntegrationStatus(),
       anthropic: getAnthropicIntegrationStatus(),
       openai: getOpenaiIntegrationStatus(),
-      wordpress: getWordPressIntegrationStatus()
+      wordpress: getWordPressIntegrationStatus(),
+      pinterest: getPinterestIntegrationStatus(),
     },
     latestLog: latestLog ?? null
   });
+});
+
+// ─── Pinterest Manual Trigger ─────────────────────────────────────────────────
+// POST /automation/pinterest/post-now
+// Runs the Pinterest auto-post job immediately. Responds instantly, job runs in background.
+
+automationRouter.post("/pinterest/post-now", async (_req, res) => {
+  if (!isPinterestConfigured()) {
+    res.status(503).json({
+      ok: false,
+      error: "Pinterest not configured. Set PINTEREST_ACCESS_TOKEN and PINTEREST_BOARD_ID in .env.",
+    });
+    return;
+  }
+
+  // Respond immediately — job is async
+  res.json({ ok: true, started: true, message: "Pinterest post job started. Check /automation/logs for results." });
+
+  // Run in background
+  runPinterestAutoPost()
+    .then(result => logAuto("pinterest-post", result.failed > 0 && result.posted === 0 ? "failed" : "success", result))
+    .catch(err   => logAuto("pinterest-post", "failed", {}, String(err)));
 });
 
 // ─── Manual Product Add ───────────────────────────────────────────────────────
