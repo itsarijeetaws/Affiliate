@@ -34,7 +34,15 @@ productsRouter.get("/", async (req, res, next) => {
   const offset = (page - 1) * limit;
   const query = String(req.query.q ?? "").trim().toLowerCase();
   const categorySlug = String(req.query.categorySlug ?? "").trim();
-  const sortRandom = req.query.sort === "random";
+  const sortParam = String(req.query.sort ?? "");
+  const sortRandom = sortParam === "random";
+
+  // Reusable sort columns for non-random, non-category queries
+  const sortOrder =
+    sortParam === "price-asc"  ? [asc(sql`CAST(${schema.products.price} AS DECIMAL(10,2))`)] :
+    sortParam === "price-desc" ? [desc(sql`CAST(${schema.products.price} AS DECIMAL(10,2))`)] :
+    sortParam === "rating"     ? [desc(schema.products.rating)] :
+    [desc(schema.categories.commissionRate), desc(schema.products.rating)];
 
   // Resolve categorySlug → categoryId for filtering
   let filterCategoryId: number | null = null;
@@ -64,33 +72,29 @@ productsRouter.get("/", async (req, res, next) => {
       .limit(limit)
       .offset(sortRandom ? 0 : offset);
   } else if (query) {
-    // Text search — commission-weighted sort so high-value categories surface first
+    // Text search — paginated, sortable
     const pattern = `%${query}%`;
+    const searchWhere = and(
+      sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+      or(
+        like(schema.products.name, pattern),
+        like(schema.products.description, pattern)
+      )
+    );
     productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
-      .where(and(
-        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
-        or(
-          like(schema.products.name, pattern),
-          like(schema.products.description, pattern)
-        )
-      ))
-      .orderBy(
-        desc(schema.categories.commissionRate),
-        desc(schema.products.rating)
-      )
-      .limit(200);
+      .where(searchWhere)
+      .orderBy(...sortOrder)
+      .limit(limit)
+      .offset(offset);
   } else {
-    // Default (homepage / all products) — sort by commission rate then rating
+    // Default (all products) — paginated, sortable
     productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
       .where(sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`)
-      .orderBy(
-        desc(schema.categories.commissionRate),
-        desc(schema.products.rating)
-      )
+      .orderBy(...sortOrder)
       .limit(limit)
       .offset(offset);
   }
@@ -113,7 +117,7 @@ productsRouter.get("/", async (req, res, next) => {
     features: featuresList.filter(f => f.productId === p.id)
   }));
 
-  // Count: category-specific when filtering, total otherwise
+  // Count: scoped to current filter (category / search / all)
   let totalCount: number;
   if (filterCategoryId !== null) {
     const [{ catCount }] = await db.select({ catCount: sql<number>`count(*)` })
@@ -123,12 +127,26 @@ productsRouter.get("/", async (req, res, next) => {
         sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
       ));
     totalCount = Number(catCount);
+  } else if (query) {
+    const pattern = `%${query}%`;
+    const [{ searchCount }] = await db.select({ searchCount: sql<number>`count(*)` })
+      .from(schema.products)
+      .where(and(
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        or(
+          like(schema.products.name, pattern),
+          like(schema.products.description, pattern)
+        )
+      ));
+    totalCount = Number(searchCount);
   } else {
-    const [{ allCount }] = await db.select({ allCount: sql<number>`count(*)` }).from(schema.products);
+    const [{ allCount }] = await db.select({ allCount: sql<number>`count(*)` })
+      .from(schema.products)
+      .where(sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`);
     totalCount = Number(allCount);
   }
 
-  res.json({ items, pagination: { page, limit, total: query ? items.length : totalCount } });
+  res.json({ items, pagination: { page, limit, total: totalCount } });
 });
 
 // ─── CSV Export (admin only) ──────────────────────────────────────────────────
