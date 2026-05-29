@@ -48,8 +48,8 @@ function savePosted(posted: Set<string>): void {
 
 async function main() {
   if (!isTelegramConfigured()) {
-    console.log("❌ TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID not set in .env");
-    process.exit(1);
+    console.log("ℹ️  TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID not set — skipping.");
+    process.exit(0);
   }
 
   const pool = mysql.createPool({
