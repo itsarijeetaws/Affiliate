@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, SITE_URL } from "@/lib/seo";
 import { AlertTriangle } from "lucide-react";
+import { ShareButtons } from "@/components/ShareButtons";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 type BlogPost = {
   id: number;
@@ -71,7 +72,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     headline: post.title,
     description: post.seoDescription ?? post.excerpt,
     datePublished: post.createdAt,
-    author: { "@type": "Organization", name: "BestBuysIndia" }
+    author: { "@type": "Organization", name: "BestBuysIndia", url: SITE_URL }
   };
 
   const cleanHtml = cleanContent(post.content);
@@ -121,6 +122,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         className="blog-content rounded-xl border border-gray-200 dark:border-white/[0.07] bg-white dark:bg-[#16161e] px-7 py-8"
         dangerouslySetInnerHTML={{ __html: cleanHtml }}
       />
+
+      {/* Share */}
+      <div className="px-1">
+        <ShareButtons url={`${SITE_URL}/blog/${post.slug}`} title={post.title} />
+      </div>
 
       {/* Affiliate disclaimer */}
       <footer className="rounded-xl border border-gray-200 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02] px-5 py-4">

@@ -3,6 +3,7 @@ import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { buildMetadata, generateBreadcrumbSchema, generateFAQSchema, SITE_URL } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
 import { ImageGallery } from "@/components/ImageGallery";
+import { ShareButtons } from "@/components/ShareButtons";
 import {
   Award, BadgeCheck, ShoppingCart, ListChecks, Check, X,
   TrendingUp, ThumbsUp, Target, Users, AlertCircle, Zap,
@@ -312,7 +313,7 @@ function StarRating({ rating, size = "md" }: { rating: number; size?: "sm" | "md
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export const dynamic = "force-dynamic";
+export const revalidate = 900; // revalidate every 15 min (price freshness)
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -542,6 +543,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <p className="text-[11px] text-gray-400 dark:text-white/25">
                 * As an Amazon Associate I earn from qualifying purchases. Price may vary.
               </p>
+              <ShareButtons url={`${SITE_URL}/product/${product.slug}`} title={product.name} />
             </div>
           </div>
         </div>

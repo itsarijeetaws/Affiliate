@@ -53,14 +53,16 @@ productsRouter.get("/", async (req, res, next) => {
     // Unknown category slug — return empty rather than all products
     productsResult = [];
   } else if (filterCategoryId !== null) {
-    // Category filter
+    // Category filter — paginated for normal sort, flat fetch for random
+    const catWhere = and(
+      eq(schema.products.categoryId, filterCategoryId),
+      sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
+    );
     productsResult = await db.select().from(schema.products)
-      .where(and(
-        eq(schema.products.categoryId, filterCategoryId),
-        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
-      ))
+      .where(catWhere)
       .orderBy(sortRandom ? sql`RAND()` : desc(schema.products.rating), sortRandom ? sql`RAND()` : desc(schema.products.updatedAt))
-      .limit(sortRandom ? limit : 500);
+      .limit(limit)
+      .offset(sortRandom ? 0 : offset);
   } else if (query) {
     // Text search — commission-weighted sort so high-value categories surface first
     const pattern = `%${query}%`;
@@ -111,9 +113,22 @@ productsRouter.get("/", async (req, res, next) => {
     features: featuresList.filter(f => f.productId === p.id)
   }));
 
-  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(schema.products);
+  // Count: category-specific when filtering, total otherwise
+  let totalCount: number;
+  if (filterCategoryId !== null) {
+    const [{ catCount }] = await db.select({ catCount: sql<number>`count(*)` })
+      .from(schema.products)
+      .where(and(
+        eq(schema.products.categoryId, filterCategoryId),
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
+      ));
+    totalCount = Number(catCount);
+  } else {
+    const [{ allCount }] = await db.select({ allCount: sql<number>`count(*)` }).from(schema.products);
+    totalCount = Number(allCount);
+  }
 
-  res.json({ items, pagination: { page, limit, total: query ? items.length : Number(count) } });
+  res.json({ items, pagination: { page, limit, total: query ? items.length : totalCount } });
 });
 
 // ─── CSV Export (admin only) ──────────────────────────────────────────────────

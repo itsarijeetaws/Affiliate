@@ -179,9 +179,6 @@ export default async function HomePage() {
         ))}
       </section>
 
-      {/* ── Amazon Services / Bounty ── */}
-      <BountyBanner />
-
       {/* ── Shop by Category ── */}
       {categories.length > 0 && (
         <section>
@@ -215,6 +212,9 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ── Amazon Services / Bounty ── */}
+      <BountyBanner />
 
       {/* ── Category Carousels (Amazon-style horizontal rows) ── */}
       {CAROUSEL_CONFIGS.map(cfg => {

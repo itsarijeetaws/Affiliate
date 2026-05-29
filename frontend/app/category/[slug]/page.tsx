@@ -54,7 +54,7 @@ type Guide = {
   excerpt?: string | null;
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 1800; // revalidate every 30 min
 
 const CATEGORY_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
   electronics:           { Icon: Zap,             color: "#3b82f6" },
@@ -95,16 +95,30 @@ function getIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? { Icon: ShoppingCart, color: "#FF9900" };
 }
 
-export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
+const PER_PAGE = 24;
+
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { slug } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam ?? 1));
 
   let products: Product[] = [];
+  let totalProducts = 0;
   let categoryName = slug.replace(/-/g, " ");
   let categoryDesc = "";
 
   try {
-    const data = await apiFetch<{ items: Product[] }>(`/products?categorySlug=${encodeURIComponent(slug)}&limit=200`);
+    const data = await apiFetch<{ items: Product[]; pagination: { total: number } }>(
+      `/products?categorySlug=${encodeURIComponent(slug)}&limit=${PER_PAGE}&page=${page}`
+    );
     products = data.items;
+    totalProducts = data.pagination?.total ?? products.length;
     if (products.length > 0 && products[0].category?.name) {
       categoryName = products[0].category.name;
     }
@@ -140,6 +154,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const avgRating = products.length > 0
     ? (products.reduce((s, p) => s + Number(p.rating), 0) / products.length).toFixed(1)
     : "—";
+  const totalPages = Math.ceil(totalProducts / PER_PAGE);
 
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: "Home", url: SITE_URL },
@@ -187,7 +202,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
             )}
             <div className="mt-4 flex flex-wrap gap-6">
               <div>
-                <p className="text-xl font-bold text-[#FF9900]">{products.length}</p>
+                <p className="text-xl font-bold text-[#FF9900]">{totalProducts}</p>
                 <p className="text-[11px] uppercase tracking-[0.15em] text-gray-400 dark:text-white/35">Products</p>
               </div>
               <div>
@@ -237,13 +252,55 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
         <section>
           <div className="section-head">
             <h2 className="section-title">All {categoryName} Reviews</h2>
-            <span className="text-[12px] text-gray-400 dark:text-white/35">{products.length} products</span>
+            <span className="text-[12px] text-gray-400 dark:text-white/35">
+              {totalProducts} products · page {page} of {totalPages}
+            </span>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((p) => (
               <ProductCard key={p.id} {...p} />
             ))}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              {page > 1 && (
+                <Link
+                  href={`/category/${slug}?page=${page - 1}`}
+                  className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-[#16161e] px-4 text-[13px] font-semibold text-gray-700 dark:text-white/70 hover:border-[#FF9900]/40 hover:text-[#FF9900] transition-all"
+                >
+                  ← Prev
+                </Link>
+              )}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  const p = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i;
+                  return (
+                    <Link
+                      key={p}
+                      href={`/category/${slug}?page=${p}`}
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl text-[13px] font-semibold transition-all ${
+                        p === page
+                          ? "bg-[#FF9900] text-black"
+                          : "border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-[#16161e] text-gray-600 dark:text-white/60 hover:border-[#FF9900]/40 hover:text-[#FF9900]"
+                      }`}
+                    >
+                      {p}
+                    </Link>
+                  );
+                })}
+              </div>
+              {page < totalPages && (
+                <Link
+                  href={`/category/${slug}?page=${page + 1}`}
+                  className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-[#16161e] px-4 text-[13px] font-semibold text-gray-700 dark:text-white/70 hover:border-[#FF9900]/40 hover:text-[#FF9900] transition-all"
+                >
+                  Next →
+                </Link>
+              )}
+            </div>
+          )}
         </section>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-200 dark:border-white/[0.08] p-12 text-center">
