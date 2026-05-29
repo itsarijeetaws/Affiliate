@@ -24,12 +24,17 @@ const parseJsonArray = (val: unknown): string[] => {
   return [];
 };
 
-productsRouter.get("/", responseCache("products", 180), async (req, res) => {
+productsRouter.get("/", async (req, res, next) => {
+  // Skip cache for random sort — each request needs a fresh shuffle
+  if (req.query.sort === "random") return next();
+  return responseCache("products", 180)(req, res, next);
+}, async (req, res) => {
   const page = Number(req.query.page ?? 1);
   const limit = Math.min(Number(req.query.limit ?? 12), 2000);
   const offset = (page - 1) * limit;
   const query = String(req.query.q ?? "").trim().toLowerCase();
   const categorySlug = String(req.query.categorySlug ?? "").trim();
+  const sortRandom = req.query.sort === "random";
 
   // Resolve categorySlug → categoryId for filtering
   let filterCategoryId: number | null = null;
@@ -48,11 +53,11 @@ productsRouter.get("/", responseCache("products", 180), async (req, res) => {
     // Unknown category slug — return empty rather than all products
     productsResult = [];
   } else if (filterCategoryId !== null) {
-    // Category filter: within a category sort by rating DESC (commission same for all)
+    // Category filter
     productsResult = await db.select().from(schema.products)
       .where(eq(schema.products.categoryId, filterCategoryId))
-      .orderBy(desc(schema.products.rating), desc(schema.products.updatedAt))
-      .limit(500);
+      .orderBy(sortRandom ? sql`RAND()` : desc(schema.products.rating), sortRandom ? sql`RAND()` : desc(schema.products.updatedAt))
+      .limit(sortRandom ? limit : 500);
   } else if (query) {
     // Text search — commission-weighted sort so high-value categories surface first
     const pattern = `%${query}%`;

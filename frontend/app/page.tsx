@@ -132,7 +132,7 @@ export default async function HomePage() {
   // Fetch carousel products in parallel
   const carouselResults = await Promise.allSettled(
     CAROUSEL_CONFIGS.map(cat =>
-      apiFetch<{ items: Product[] }>(`/products?categorySlug=${cat.slug}&limit=12`)
+      apiFetch<{ items: Product[] }>(`/products?categorySlug=${cat.slug}&limit=16&sort=random`)
         .then(d => ({ slug: cat.slug, items: d.items ?? [] }))
         .catch(() => ({ slug: cat.slug, items: [] }))
     )
