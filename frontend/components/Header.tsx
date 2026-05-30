@@ -85,6 +85,7 @@ export function Header() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const catDropRef = useRef<HTMLDivElement>(null);
+  const catListRef = useRef<HTMLDivElement>(null);
   const megaRef = useRef<HTMLDivElement>(null);
 
   // Close search category dropdown on outside click
@@ -97,6 +98,13 @@ export function Header() {
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
   }, []);
+
+  // Scroll list to top every time dropdown opens so "All Categories" is always visible
+  useEffect(() => {
+    if (catOpen && catListRef.current) {
+      catListRef.current.scrollTop = 0;
+    }
+  }, [catOpen]);
 
   // Close mega dropdown on outside click or Escape
   useEffect(() => {
@@ -189,7 +197,7 @@ export function Header() {
 
               {catOpen && (
                 <div className="absolute left-0 top-[calc(100%+6px)] z-[200] w-48 rounded-xl border border-gray-200 dark:border-white/[0.1] bg-white dark:bg-[#1a1a24] shadow-xl overflow-hidden">
-                  <div className="max-h-72 overflow-y-auto py-1 [scrollbar-width:thin]">
+                  <div ref={catListRef} className="max-h-72 overflow-y-auto py-1 [scrollbar-width:thin]">
                     {[{ label: "All Categories", slug: "", icon: "🔍" }, ...NAV_CATEGORIES].map(c => (
                       <button
                         key={c.slug}
