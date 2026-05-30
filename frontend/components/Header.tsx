@@ -141,7 +141,10 @@ export function Header() {
     if (!q && searchCat) {
       router.push(`/category/${searchCat}`);
     } else if (q) {
-      router.push(`/search?q=${encodeURIComponent(q)}`);
+      const url = searchCat
+        ? `/search?q=${encodeURIComponent(q)}&category=${searchCat}`
+        : `/search?q=${encodeURIComponent(q)}`;
+      router.push(url);
     } else {
       router.push("/search");
     }

@@ -27,24 +27,17 @@ const POPULAR_SEARCHES = [
   "smart watch", "mixer grinder", "mechanical keyboard"
 ];
 
-const CATEGORY_TABS = [
-  { slug: "womens-fashion",     label: "Women's Fashion" },
-  { slug: "mens-fashion",       label: "Men's Fashion" },
-  { slug: "smartphones",        label: "Smartphones" },
-  { slug: "laptops",            label: "Laptops" },
-  { slug: "headphones",         label: "Audio" },
-  { slug: "kitchen-appliances", label: "Kitchen" },
-  { slug: "smartwatches",       label: "Watches" },
-  { slug: "cameras",            label: "Cameras" },
-  { slug: "bags-luggage",       label: "Bags" },
-  { slug: "monitors",           label: "Monitors" },
-  { slug: "health-beauty",      label: "Health & Beauty" },
-  { slug: "grooming",           label: "Grooming" },
-  { slug: "power-banks",        label: "Power Banks" },
-  { slug: "toys",               label: "Toys" },
-  { slug: "books",              label: "Books" },
-  { slug: "gaming",             label: "Gaming" },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  "womens-fashion": "Women's Fashion", "mens-fashion": "Men's Fashion",
+  "smartphones": "Smartphones", "laptops": "Laptops", "headphones": "Audio",
+  "kitchen-appliances": "Kitchen", "smartwatches": "Watches", "cameras": "Cameras",
+  "bags-luggage": "Bags", "monitors": "Monitors", "health-beauty": "Health & Beauty",
+  "grooming": "Grooming", "power-banks": "Power Banks", "toys": "Toys",
+  "books": "Books", "gaming": "Gaming", "smart-tvs": "Smart TVs",
+  "home-appliances": "Home Appliances", "fitness": "Fitness",
+  "computer-peripherals": "PC Peripherals", "baby-kids": "Baby & Kids",
+  "mobile-accessories": "Mobile Accessories", "automotive": "Automotive",
+};
 
 const SORT_OPTIONS = [
   { label: "Relevance",  value: "" },
@@ -66,7 +59,7 @@ export default async function SearchPage({
   const page     = Math.max(1, Number(resolved.page ?? 1));
   const category = resolved.category?.trim() || "";
 
-  const categoryLabel = CATEGORY_TABS.find(t => t.slug === category)?.label ?? "";
+  const categoryLabel = CATEGORY_LABELS[category] ?? category.replace(/-/g, " ");
 
   let items: Product[] = [];
   let total = 0;
@@ -141,34 +134,16 @@ export default async function SearchPage({
         )}
       </div>
 
-      {/* Category filter tabs */}
-      <div className="rounded-xl border border-gray-200 dark:border-white/[0.07] bg-white dark:bg-[#16161e] px-4 py-3">
-        <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Link
-            href={buildHref({ category: "", page: 1 })}
-            className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-all whitespace-nowrap ${
-              !category
-                ? "bg-[#FF9900] text-black"
-                : "border border-gray-200 dark:border-white/[0.08] text-gray-600 dark:text-white/60 hover:border-[#FF9900]/40 hover:text-[#FF9900]"
-            }`}
-          >
-            All Products
-          </Link>
-          {CATEGORY_TABS.map(tab => (
-            <Link
-              key={tab.slug}
-              href={buildHref({ category: tab.slug, page: 1 })}
-              className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-all whitespace-nowrap ${
-                category === tab.slug
-                  ? "bg-[#FF9900] text-black"
-                  : "border border-gray-200 dark:border-white/[0.08] text-gray-600 dark:text-white/60 hover:border-[#FF9900]/40 hover:text-[#FF9900]"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
+      {/* Active category chip — shows when filtering by category */}
+      {category && (
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-gray-400 dark:text-white/35">Filtered by:</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF9900]/10 border border-[#FF9900]/25 px-3 py-1 text-[12px] font-semibold text-[#FF9900]">
+            {categoryLabel}
+            <Link href={buildHref({ category: "", page: 1 })} className="ml-1 hover:text-[#e68a00] transition-colors" aria-label="Remove category filter">✕</Link>
+          </span>
         </div>
-      </div>
+      )}
 
       {/* Results bar + sort */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
