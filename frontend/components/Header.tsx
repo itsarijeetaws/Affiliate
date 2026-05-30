@@ -162,7 +162,7 @@ export function Header() {
     <header className="sticky top-0 z-50">
 
       {/* ── Row 1: Logo + Search + Right nav ── */}
-      <div className="border-b border-gray-200/80 bg-white/90 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0d0d14]/95">
+      <div className="relative z-[2] border-b border-gray-200/80 bg-white/90 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0d0d14]/95">
         <div className="container-shell flex h-[62px] items-center gap-2 md:gap-6">
 
           {/* Logo */}
@@ -342,7 +342,7 @@ export function Header() {
       {/* ── Row 2: Category nav ── */}
       <div
         ref={megaRef}
-        className="relative border-b border-gray-200/70 bg-gray-50/90 backdrop-blur-md dark:border-white/[0.05] dark:bg-[#0a0a10]/95"
+        className="relative z-[1] border-b border-gray-200/70 bg-gray-50/90 backdrop-blur-md dark:border-white/[0.05] dark:bg-[#0a0a10]/95"
       >
         <div className="container-shell flex h-10 items-center">
 
