@@ -13,7 +13,8 @@ import {
   generateRoundupPost,
   getAnthropicIntegrationStatus,
   getGeminiIntegrationStatus,
-  getOpenaiIntegrationStatus
+  getOpenaiIntegrationStatus,
+  generateLlmText
 } from "../services/gemini.service.js";
 import { runPriceUpdateJob } from "../services/price-update.service.js";
 import { fetchAmazonProduct } from "../services/product-fetch.service.js";
@@ -506,10 +507,7 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
   let contentGenerated = 0, contentFailed = 0;
   const createdAsins = results.filter(r => r.status === "created").map(r => r.asin);
 
-  if (createdAsins.length > 0 && process.env.ANTHROPIC_API_KEY) {
-    const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-    const aiKey = process.env.ANTHROPIC_API_KEY;
-
+  if (createdAsins.length > 0 && (process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)) {
     // Fetch newly inserted products with category name
     const newProducts = await db
       .select({
@@ -525,29 +523,15 @@ automationRouter.post("/bulk-import", upload.single("file"), async (req, res) =>
 
     for (const p of newProducts) {
       try {
-        const prompt =
+        const text = await generateLlmText(
+          `You write concise product content for an Indian Amazon affiliate site. Respond ONLY with minified JSON.\n\n` +
           `Product: ${p.name}\n` +
           `Category: ${p.categoryName ?? "Electronics"}\n` +
           `Price: ₹${p.price ?? 0} | Rating: ${p.rating ?? 4}/5\n\n` +
           `Generate JSON with keys: description (2-3 sentences for Indian buyers), ` +
           `pros (array of 3-5 strings ≤10 words each), cons (array of 2-3 strings ≤10 words each).\n` +
-          `Reply ONLY with minified JSON — no markdown, no explanation.`;
-
-        const resp = await fetch(ANTHROPIC_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": aiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({
-            model: "claude-haiku-4-5",
-            max_tokens: 512,
-            system: "You write concise product content for an Indian Amazon affiliate site. Respond ONLY with minified JSON.",
-            messages: [{ role: "user", content: prompt }],
-          }),
-        });
-
-        if (!resp.ok) { contentFailed++; continue; }
-
-        const data = await resp.json() as { content: Array<{ type: string; text?: string }> };
-        const text = (data.content ?? []).filter(b => b.type === "text").map(b => b.text ?? "").join("").trim();
+          `Reply ONLY with minified JSON — no markdown, no explanation.`
+        );
         const s = text.indexOf("{"), e = text.lastIndexOf("}");
         if (s === -1 || e === -1) { contentFailed++; continue; }
 
@@ -579,9 +563,8 @@ automationRouter.post("/auto-categorize", async (req, res) => {
   const dryRun: boolean = req.body?.dryRun !== false; // default true (safe)
   const categorySlugFilter: string | undefined = req.body?.categorySlug || undefined;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ ok: false, error: "ANTHROPIC_API_KEY not set" });
+  if (!process.env.GEMINI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    res.status(500).json({ ok: false, error: "No LLM key configured (GEMINI_API_KEY or ANTHROPIC_API_KEY)" });
     return;
   }
 
@@ -632,7 +615,6 @@ automationRouter.post("/auto-categorize", async (req, res) => {
     }
 
     const BATCH = 8;
-    const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     type ChangeItem = { id: number; name: string; from: string; to: string; toId: number };
     const changes: ChangeItem[] = [];
     let unchanged = 0;
@@ -663,24 +645,7 @@ automationRouter.post("/auto-categorize", async (req, res) => {
         `No explanation. No markdown. Only the JSON array.`;
 
       try {
-        const resp = await fetch(ANTHROPIC_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-haiku-4-5",
-            max_tokens: 300,
-            messages: [{ role: "user", content: prompt }],
-          }),
-        });
-
-        if (!resp.ok) { failed += batch.length; continue; }
-
-        const data = await resp.json() as { content: Array<{ type: string; text?: string }> };
-        const text = (data.content ?? []).filter(b => b.type === "text").map(b => b.text ?? "").join("");
+        const text = await generateLlmText(prompt);
         const s = text.indexOf("["), e = text.lastIndexOf("]");
         if (s === -1 || e === -1) { failed += batch.length; continue; }
 

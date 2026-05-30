@@ -11,7 +11,6 @@
  * Estimated: ~40 guides × 3s = ~2 min total.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import path from "path";
@@ -21,13 +20,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const DB_URL    = process.env.DATABASE_URL;
-const AI_KEY    = process.env.ANTHROPIC_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL || "https://bestbuysindia.com";
 
-if (!DB_URL)  { console.error("DATABASE_URL not set");    process.exit(1); }
-if (!AI_KEY)  { console.error("ANTHROPIC_API_KEY not set"); process.exit(1); }
+if (!DB_URL)     { console.error("DATABASE_URL not set");    process.exit(1); }
+if (!GEMINI_KEY) { console.error("GEMINI_API_KEY not set"); process.exit(1); }
 
-const ai = new Anthropic({ apiKey: AI_KEY });
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+async function callGemini(system: string, user: string, maxTokens = 8192): Promise<string> {
+  const resp = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
+    })
+  });
+  if (!resp.ok) throw new Error(`Gemini ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json() as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  return (data.candidates[0]?.content?.parts[0]?.text ?? "")
+    .replace(/^```(?:html|json|markdown|)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+}
 
 // ─── Price brackets per category ──────────────────────────────────────────────
 // Format: { max: INR price, label: display string }
@@ -120,19 +137,15 @@ async function generateGuideHtml(
     );
   }).join("\n\n");
 
-  const msg = await ai.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 4096,
-    system:
-      "You write SEO-optimized buying guide blog posts in HTML for BestBuysIndia — an Amazon India affiliate site. " +
-      "Write natural, helpful content for Indian buyers. " +
-      "Output ONLY valid HTML — no markdown, no code fences, no explanation. " +
-      "Use these HTML elements: <p>, <h2>, <h3>, <ul>, <li>, <strong>, <a>. " +
-      "Include internal links to product review pages and Amazon affiliate links. " +
-      "Add class=\"cta-btn\" to Amazon buy links for orange button styling.",
-    messages: [{
-      role: "user",
-      content:
+  const SYSTEM =
+    "You write SEO-optimized buying guide blog posts in HTML for BestBuysIndia — an Amazon India affiliate site. " +
+    "Write natural, helpful content for Indian buyers. " +
+    "Output ONLY valid HTML — no markdown, no code fences, no explanation. " +
+    "Use these HTML elements: <p>, <h2>, <h3>, <ul>, <li>, <strong>, <a>. " +
+    "Include internal links to product review pages and Amazon affiliate links. " +
+    "Add class=\"cta-btn\" to Amazon buy links for orange button styling.";
+
+  return callGemini(SYSTEM,
         `Write a 700-900 word buying guide: "Best ${catName} Under ${priceDisp} in India (2026)"\n\n` +
         `Products to feature (use all of them):\n${productList}\n\n` +
         `Structure:\n` +
@@ -147,13 +160,8 @@ async function generateGuideHtml(
         `   <h3>Q: [Write the full question here]</h3>\n` +
         `   <p>[Write the full answer here, minimum 2 sentences with specific advice]</p>\n` +
         `5. Short conclusion paragraph with <a href="/category/${catSlug}">link to full category</a>\n\n` +
-        `Important: Indian Rupee symbol ₹, mention Amazon India, keep advice practical for Indian buyers.`,
-    }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
-  // Strip any accidental markdown code fences
-  return text.replace(/^```(?:html)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        `Important: Indian Rupee symbol ₹, mention Amazon India, keep advice practical for Indian buyers.`
+  );
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import { env } from "../config/env.js";
 import { cacheClient } from "../lib/redis.js";
 
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -40,7 +40,7 @@ async function callGemini(prompt: string): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
     })
   });
 
@@ -128,7 +128,7 @@ function stripCodeFences(text: string): string {
     .trim();
 }
 
-async function generateLlmText(prompt: string): Promise<string> {
+export async function generateLlmText(prompt: string): Promise<string> {
   const attempts: string[] = [];
 
   const run = async (label: string, fn: () => Promise<string>): Promise<string | null> => {

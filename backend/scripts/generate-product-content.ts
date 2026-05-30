@@ -9,7 +9,6 @@
  * Cost: ~$0.40-0.50 for 536 products (~30-40 min)
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import path from "path";
@@ -19,12 +18,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const DB_URL = process.env.DATABASE_URL;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-if (!DB_URL) { console.error("DATABASE_URL not set"); process.exit(1); }
-if (!ANTHROPIC_KEY) { console.error("ANTHROPIC_API_KEY not set"); process.exit(1); }
+if (!DB_URL)     { console.error("DATABASE_URL not set");   process.exit(1); }
+if (!GEMINI_KEY) { console.error("GEMINI_API_KEY not set"); process.exit(1); }
 
-const ai = new Anthropic({ apiKey: ANTHROPIC_KEY });
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+async function callGemini(system: string, user: string, maxTokens = 1024): Promise<string> {
+  const resp = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
+    })
+  });
+  if (!resp.ok) throw new Error(`Gemini ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json() as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  return (data.candidates[0]?.content?.parts[0]?.text ?? "")
+    .replace(/^```(?:html|json|markdown|)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+}
 
 // Parse DATABASE_URL (supports ?socketPath=)
 function parseDbUrl(url: string) {
@@ -53,29 +70,18 @@ interface GeneratedContent {
 }
 
 async function generate(row: ProductRow): Promise<GeneratedContent> {
-  const msg = await ai.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 512,
-    system:
-      "You write concise product content for an Indian Amazon affiliate site (BestBuysIndia). " +
-      "Respond ONLY with minified JSON — no markdown, no explanation.",
-    messages: [
-      {
-        role: "user",
-        content:
-          `Product: ${row.name}\n` +
-          `Category: ${row.categoryName || "Electronics"}\n` +
-          `Price: ₹${row.price || 0}\n` +
-          `Rating: ${row.rating || 4}/5\n\n` +
-          `Generate JSON with keys: description (2-3 sentences for Indian buyers), ` +
-          `pros (array of 3-5 short strings ≤10 words each), ` +
-          `cons (array of 2-3 short strings ≤10 words each). ` +
-          `Focus on value, performance, and relevance for Indian market.`,
-      },
-    ],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
+  const text = await callGemini(
+    "You write concise product content for an Indian Amazon affiliate site (BestBuysIndia). " +
+    "Respond ONLY with minified JSON — no markdown, no explanation.",
+    `Product: ${row.name}\n` +
+    `Category: ${row.categoryName || "Electronics"}\n` +
+    `Price: ₹${row.price || 0}\n` +
+    `Rating: ${row.rating || 4}/5\n\n` +
+    `Generate JSON with keys: description (2-3 sentences for Indian buyers), ` +
+    `pros (array of 3-5 short strings ≤10 words each), ` +
+    `cons (array of 2-3 short strings ≤10 words each). ` +
+    `Focus on value, performance, and relevance for Indian market.`
+  );
   // Extract JSON object robustly — find first { and last }
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");

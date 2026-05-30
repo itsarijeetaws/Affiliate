@@ -7,7 +7,6 @@
  *   npx tsx scripts/generate-category-descriptions.ts
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import path from "path";
@@ -17,12 +16,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const DB_URL = process.env.DATABASE_URL;
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-if (!DB_URL) { console.error("DATABASE_URL not set"); process.exit(1); }
-if (!ANTHROPIC_KEY) { console.error("ANTHROPIC_API_KEY not set"); process.exit(1); }
+if (!DB_URL)     { console.error("DATABASE_URL not set");   process.exit(1); }
+if (!GEMINI_KEY) { console.error("GEMINI_API_KEY not set"); process.exit(1); }
 
-const ai = new Anthropic({ apiKey: ANTHROPIC_KEY });
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+async function callGemini(system: string, user: string, maxTokens = 300): Promise<string> {
+  const resp = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
+    })
+  });
+  if (!resp.ok) throw new Error(`Gemini ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json() as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  return (data.candidates[0]?.content?.parts[0]?.text ?? "").trim();
+}
 
 function parseDbUrl(url: string) {
   const u = new URL(url);
@@ -43,23 +57,14 @@ interface CategoryRow {
 }
 
 async function generateDescription(cat: CategoryRow): Promise<string> {
-  const msg = await ai.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 200,
-    system:
-      "You write concise SEO-optimized category descriptions for an Indian Amazon affiliate site (BestBuysIndia). " +
-      "2-3 sentences. Natural, informative, no fluff. No markdown. Target Indian buyers.",
-    messages: [{
-      role: "user",
-      content:
-        `Write a 2-3 sentence category description for: "${cat.name}"\n` +
-        `Site: BestBuysIndia — Amazon India product reviews and comparisons\n` +
-        `Products in category: ${cat.productCount}\n` +
-        `Focus: help Indian buyers find the best ${cat.name.toLowerCase()} with expert reviews and live Amazon pricing.`,
-    }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
+  const text = await callGemini(
+    "You write concise SEO-optimized category descriptions for an Indian Amazon affiliate site (BestBuysIndia). " +
+    "2-3 sentences. Natural, informative, no fluff. No markdown. Target Indian buyers.",
+    `Write a 2-3 sentence category description for: "${cat.name}"\n` +
+    `Site: BestBuysIndia — Amazon India product reviews and comparisons\n` +
+    `Products in category: ${cat.productCount}\n` +
+    `Focus: help Indian buyers find the best ${cat.name.toLowerCase()} with expert reviews and live Amazon pricing.`
+  );
   if (!text) throw new Error("Empty response");
   return text;
 }

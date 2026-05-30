@@ -1,15 +1,14 @@
 /**
- * Bulk product importer with Claude-generated content.
+ * Bulk product importer with Gemini-generated content.
  *
  * 1. Fill in backend/data/products-to-import.json (see template below)
  * 2. Get ASINs + image URLs from Amazon SiteStripe bar
  * 3. Run: cd backend && npx tsx scripts/import-products.ts
  *
- * Claude Haiku generates: description, pros, cons for each product.
+ * Gemini 1.5 Flash generates: description, pros, cons for each product.
  * Skips products whose ASIN already exists in DB.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import path from "path";
@@ -19,20 +18,38 @@ import fs from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const DB_URL   = process.env.DATABASE_URL!;
-const AI_KEY   = process.env.ANTHROPIC_API_KEY!;
-const TAG      = process.env.AMAZON_PARTNER_TAG ?? "adfirststore-21";
+const DB_URL    = process.env.DATABASE_URL!;
+const GEMINI_KEY = process.env.GEMINI_API_KEY!;
+const TAG       = process.env.AMAZON_PARTNER_TAG ?? "adfirststore-21";
 const DATA_FILE = path.resolve(__dirname, "../data/products-to-import.json");
 
-if (!DB_URL)  { console.error("DATABASE_URL not set"); process.exit(1); }
-if (!AI_KEY)  { console.error("ANTHROPIC_API_KEY not set"); process.exit(1); }
+if (!DB_URL)     { console.error("DATABASE_URL not set");   process.exit(1); }
+if (!GEMINI_KEY) { console.error("GEMINI_API_KEY not set"); process.exit(1); }
 if (!fs.existsSync(DATA_FILE)) {
   console.error(`Data file not found: ${DATA_FILE}`);
   console.error("Create it from: backend/data/products-to-import.example.json");
   process.exit(1);
 }
 
-const ai = new Anthropic({ apiKey: AI_KEY });
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+async function callGemini(system: string, user: string, maxTokens = 1024): Promise<string> {
+  const resp = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens }
+    })
+  });
+  if (!resp.ok) throw new Error(`Gemini ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json() as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  return (data.candidates[0]?.content?.parts[0]?.text ?? "")
+    .replace(/^```(?:json|)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+}
 
 function parseDbUrl(url: string) {
   const u = new URL(url);
@@ -69,27 +86,18 @@ async function generateContent(
   rating: number,
   categoryName: string
 ): Promise<{ description: string; pros: string[]; cons: string[] }> {
-  const msg = await ai.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 600,
-    system:
-      "You write concise product review content for an Amazon India affiliate site. " +
-      "Output ONLY valid JSON. No markdown, no explanation.",
-    messages: [{
-      role: "user",
-      content:
-        `Generate a product review for: "${productName}"\n` +
-        `Price: ₹${price.toLocaleString("en-IN")} | Rating: ${rating}/5 | Category: ${categoryName}\n\n` +
-        `Return this exact JSON structure:\n` +
-        `{\n` +
-        `  "description": "2-3 sentence product description for Indian buyers, mention key features and value",\n` +
-        `  "pros": ["pro1", "pro2", "pro3", "pro4"],\n` +
-        `  "cons": ["con1", "con2"]\n` +
-        `}`,
-    }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "{}";
+  const text = await callGemini(
+    "You write concise product review content for an Amazon India affiliate site. " +
+    "Output ONLY valid JSON. No markdown, no explanation.",
+    `Generate a product review for: "${productName}"\n` +
+    `Price: ₹${price.toLocaleString("en-IN")} | Rating: ${rating}/5 | Category: ${categoryName}\n\n` +
+    `Return this exact JSON structure:\n` +
+    `{\n` +
+    `  "description": "2-3 sentence product description for Indian buyers, mention key features and value",\n` +
+    `  "pros": ["pro1", "pro2", "pro3", "pro4"],\n` +
+    `  "cons": ["con1", "con2"]\n` +
+    `}`
+  );
   const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
   try {
     return JSON.parse(clean) as { description: string; pros: string[]; cons: string[] };
