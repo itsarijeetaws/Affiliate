@@ -60,8 +60,25 @@ productsRouter.get("/", async (req, res, next) => {
   if (slugNotFound) {
     // Unknown category slug — return empty rather than all products
     productsResult = [];
+  } else if (filterCategoryId !== null && query) {
+    // Combined: category filter + text search
+    const pattern = `%${query}%`;
+    productsResult = await db.select(getTableColumns(schema.products))
+      .from(schema.products)
+      .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
+      .where(and(
+        eq(schema.products.categoryId, filterCategoryId),
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        or(
+          like(schema.products.name, pattern),
+          like(schema.products.description, pattern)
+        )
+      ))
+      .orderBy(...sortOrder)
+      .limit(limit)
+      .offset(offset);
   } else if (filterCategoryId !== null) {
-    // Category filter — paginated for normal sort, flat fetch for random
+    // Category filter only — paginated for normal sort, flat fetch for random
     const catWhere = and(
       eq(schema.products.categoryId, filterCategoryId),
       sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
@@ -117,9 +134,19 @@ productsRouter.get("/", async (req, res, next) => {
     features: featuresList.filter(f => f.productId === p.id)
   }));
 
-  // Count: scoped to current filter (category / search / all)
+  // Count: scoped to current filter
   let totalCount: number;
-  if (filterCategoryId !== null) {
+  if (filterCategoryId !== null && query) {
+    const pattern = `%${query}%`;
+    const [{ comboCount }] = await db.select({ comboCount: sql<number>`count(*)` })
+      .from(schema.products)
+      .where(and(
+        eq(schema.products.categoryId, filterCategoryId),
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        or(like(schema.products.name, pattern), like(schema.products.description, pattern))
+      ));
+    totalCount = Number(comboCount);
+  } else if (filterCategoryId !== null) {
     const [{ catCount }] = await db.select({ catCount: sql<number>`count(*)` })
       .from(schema.products)
       .where(and(
