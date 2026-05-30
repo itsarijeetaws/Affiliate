@@ -36,7 +36,7 @@
 |-----|-------|
 | Provider | Google Gemini |
 | Model | `gemini-2.5-flash` (2.0-flash deprecated for new keys) |
-| Key | `AIzaSyDfluWyIPopSih35NJNdxhpluogJbgypNk` |
+| Key | Set in `.env` on server — never commit to repo |
 | Env var | `GEMINI_API_KEY` in `~/Affiliate/backend/.env` |
 | Anthropic | No longer needed — `ANTHROPIC_API_KEY` can be removed |
 
