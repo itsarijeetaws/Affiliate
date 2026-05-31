@@ -5,7 +5,7 @@ export const metadata = buildMetadata({
   description: "Privacy policy for BestBuysIndia — what data we collect, how we use it, and your rights.",
 });
 
-const UPDATED = "26 May 2025";
+const UPDATED = "31 May 2026";
 
 export default function PrivacyPage() {
   return (

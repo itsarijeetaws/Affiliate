@@ -5,7 +5,7 @@ export const metadata = buildMetadata({
   description: "Affiliate disclosure for BestBuysIndia — how we earn commissions and how it affects our editorial independence.",
 });
 
-const UPDATED = "26 May 2025";
+const UPDATED = "31 May 2026";
 
 export default function DisclosurePage() {
   return (

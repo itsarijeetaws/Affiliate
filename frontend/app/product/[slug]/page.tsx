@@ -7,7 +7,7 @@ import { ShareButtons } from "@/components/ShareButtons";
 import {
   Award, BadgeCheck, ShoppingCart, ListChecks, Check, X,
   TrendingUp, ThumbsUp, Target, Users, AlertCircle, Zap,
-  Scale, Star, BarChart2, ChevronRight
+  Scale, Star, BarChart2, ChevronRight, BookOpen
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ type Product = {
   categoryId: number | null;
   category?: { id: number; name: string; slug: string } | null;
   features: Array<{ id: number; key: string; value: string }>;
+  lastUpdated?: string | null;
+  updatedAt?: string | null;
 };
 
 type RelatedProduct = {
@@ -46,6 +48,21 @@ type BlogPost = {
   content: string;
   createdAt: string;
 };
+
+type GuidePreview = {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  createdAt: string;
+};
+
+function formatVerifiedDate(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -363,6 +380,18 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   const related = categoryProducts.slice(0, 4);
 
+  // Fetch related buying guides for this category
+  let relatedGuides: GuidePreview[] = [];
+  try {
+    if (product.categoryId) {
+      const guideData = await apiFetch<{ items: GuidePreview[] }>(
+        `/api/blog?categoryId=${product.categoryId}&limit=3`
+      );
+      // Exclude any guide that is the linked review for this product
+      relatedGuides = (guideData.items ?? []).filter(g => g.slug !== `review-${product.slug}`).slice(0, 3);
+    }
+  } catch { /* no guides yet */ }
+
   // ── Verdict calculations ──
   const expertScore = computeExpertScore(r, pros, cons);
   const altPrices = categoryProducts.map(x => Number(x.price)).filter(Boolean);
@@ -508,11 +537,21 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 ) : (
                   <p className="text-xl font-bold text-[#FF9900]">Check current price on Amazon →</p>
                 )}
-                {p > 0 && altPrices.length > 0 && (
-                  <p className="mt-0.5 text-[11px] text-gray-400 dark:text-white/30">
-                    Category avg: ₹{Math.round(altPrices.reduce((a, b) => a + b, 0) / altPrices.length).toLocaleString("en-IN")}
-                  </p>
-                )}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {p > 0 && altPrices.length > 0 && (
+                    <span className="text-[11px] text-gray-400 dark:text-white/30">
+                      Category avg: ₹{Math.round(altPrices.reduce((a, b) => a + b, 0) / altPrices.length).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  {(product.lastUpdated || product.updatedAt) && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-2 py-0.5 text-[10px] font-semibold text-emerald-500">
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                      Prices verified {formatVerifiedDate(product.lastUpdated || product.updatedAt)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {product.description && (
@@ -540,8 +579,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                   {p > 0 ? `Buy on Amazon India — ₹${p.toLocaleString("en-IN")}` : "Buy on Amazon India"}
                 </a>
               </div>
-              <p className="text-[11px] text-gray-400 dark:text-white/25">
-                * As an Amazon Associate I earn from qualifying purchases. Price may vary.
+              <p className="flex flex-wrap items-center gap-1 text-[11px] text-gray-400 dark:text-white/25">
+                <svg className="h-3 w-3 shrink-0 text-gray-400 dark:text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Affiliate link — we may earn a commission at no extra cost to you.{" "}
+                <Link href="/disclosure" className="underline underline-offset-2 hover:text-[#FF9900] transition-colors">Learn more</Link>
+                {" "}· Price may vary.
               </p>
               <ShareButtons url={`${SITE_URL}/product/${product.slug}`} title={product.name} />
             </div>
@@ -627,9 +671,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <Target className="h-5 w-5" style={{ color: verdict.color }} strokeWidth={2} />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-white/35">
-                BestBuysIndia Expert Verdict
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-white/35">
+                  BestBuysIndia Expert Verdict
+                </p>
+                <Link
+                  href="/methodology"
+                  className="text-[10px] font-semibold text-gray-400 dark:text-white/25 hover:text-[#FF9900] transition-colors underline underline-offset-2"
+                >
+                  How we score →
+                </Link>
+              </div>
               <p className="text-[16px] font-black" style={{ color: verdict.color }}>
                 {verdict.label}
               </p>
@@ -1005,6 +1057,40 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             >
               Read full review <ChevronRight className="h-3.5 w-3.5" />
             </Link>
+          </div>
+        </section>
+      )}
+
+      {/* ── Related Guides ── */}
+      {relatedGuides.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-[#FF9900]" strokeWidth={2} />
+            <h2 className="section-title">Buying Guides — {categoryName}</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {relatedGuides.map((guide) => (
+              <Link
+                key={guide.id}
+                href={`/blog/${guide.slug}`}
+                className="group flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-white/[0.07] bg-white dark:bg-[#16161e] p-4 transition hover:border-[#FF9900]/30 hover:bg-[#FF9900]/[0.02] dark:hover:border-[#FF9900]/20"
+              >
+                <span className="inline-flex w-fit items-center rounded-full border border-[#FF9900]/20 bg-[#FF9900]/[0.06] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#FF9900]">
+                  Guide
+                </span>
+                <p className="text-[13.5px] font-semibold leading-snug text-gray-700 dark:text-white/80 group-hover:text-gray-900 dark:group-hover:text-white line-clamp-2">
+                  {guide.title}
+                </p>
+                {guide.excerpt && (
+                  <p className="text-[12px] leading-5 text-gray-400 dark:text-white/30 line-clamp-2">
+                    {guide.excerpt}
+                  </p>
+                )}
+                <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[#FF9900]">
+                  Read guide <ChevronRight className="h-3 w-3" />
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
       )}

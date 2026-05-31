@@ -95,12 +95,12 @@ const FOOTER_CATEGORIES = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} dark`} suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Anti-flash: read theme from localStorage before first paint */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;if(d)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':false;if(d)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`
           }}
         />
 
@@ -172,6 +172,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ul className="space-y-2.5">
                   {[
                     { label: "About Us", href: "/about" },
+                    { label: "Review Methodology", href: "/methodology" },
                     { label: "Affiliate Disclosure", href: "/disclosure" },
                     { label: "Privacy Policy", href: "/privacy" },
                     { label: "Contact", href: "/contact" },
