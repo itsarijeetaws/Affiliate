@@ -36,12 +36,20 @@ function parseDbUrl(url: string) {
 }
 
 const USER_AGENTS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
 ];
 function pickUA() { return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]; }
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+function jitter(base: number) { return base + Math.floor(Math.random() * 2000); }
 
 /** Extract price from JSON-LD (recursive) */
 function priceFromJsonLd(data: unknown): number | null {
@@ -119,8 +127,8 @@ async function fetchPrice(asin: string): Promise<number | null> {
 
       // CAPTCHA check
       if (html.includes("captcha") || html.includes("robot") || html.includes("Type the characters")) {
-        console.log(`  ⚠ CAPTCHA on attempt ${attempt}, waiting 10s…`);
-        await sleep(10000);
+        console.log(`  ⚠ CAPTCHA on attempt ${attempt}, waiting 60s…`);
+        await sleep(60000);
         continue;
       }
 
@@ -188,7 +196,7 @@ async function main() {
       console.log(`${label} ${arrow} ${namePreview} ₹${oldPrice} → ₹${newPrice}`);
     }
 
-    if (i < products.length - 1) await sleep(3000);
+    if (i < products.length - 1) await sleep(jitter(3000));
   }
 
   console.log(`\n✅  Done — updated: ${updated}  unchanged: ${skipped}  failed: ${failed}`);
