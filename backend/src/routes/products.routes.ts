@@ -25,8 +25,8 @@ const parseJsonArray = (val: unknown): string[] => {
 };
 
 productsRouter.get("/", async (req, res, next) => {
-  // Skip cache for random sort — each request needs a fresh shuffle
-  if (req.query.sort === "random") return next();
+  // Skip cache for random sort or any active price/rating filter
+  if (req.query.sort === "random" || req.query.minPrice || req.query.maxPrice || req.query.minRating) return next();
   return responseCache("products", 180)(req, res, next);
 }, async (req, res) => {
   const page = Number(req.query.page ?? 1);
@@ -37,12 +37,35 @@ productsRouter.get("/", async (req, res, next) => {
   const sortParam = String(req.query.sort ?? "");
   const sortRandom = sortParam === "random";
 
-  // Reusable sort columns for non-random, non-category queries
+  // Price / rating filter params
+  const minPriceParam = req.query.minPrice ? Number(req.query.minPrice) : null;
+  const maxPriceParam = req.query.maxPrice ? Number(req.query.maxPrice) : null;
+  const minRatingParam = req.query.minRating ? Number(req.query.minRating) : null;
+
+  // Additive filter clause — undefined values are ignored by Drizzle's and()
+  const filterExtras = (minPriceParam !== null || maxPriceParam !== null || minRatingParam !== null)
+    ? and(
+        minPriceParam !== null ? sql`CAST(${schema.products.price} AS DECIMAL(10,2)) >= ${minPriceParam}` : undefined,
+        maxPriceParam !== null ? sql`CAST(${schema.products.price} AS DECIMAL(10,2)) <= ${maxPriceParam}` : undefined,
+        minRatingParam !== null ? sql`${schema.products.rating} >= ${minRatingParam}` : undefined,
+      )
+    : undefined;
+
+  // Sort order for queries that include a categories join (commission rate available)
   const sortOrder =
     sortParam === "price-asc"  ? [asc(sql`CAST(${schema.products.price} AS DECIMAL(10,2))`)] :
     sortParam === "price-desc" ? [desc(sql`CAST(${schema.products.price} AS DECIMAL(10,2))`)] :
     sortParam === "rating"     ? [desc(schema.products.rating)] :
+    sortParam === "value"      ? [desc(schema.products.rating)] : // placeholder: future value-score ranking
     [desc(schema.categories.commissionRate), desc(schema.products.rating)];
+
+  // Sort order for category-only queries (no categories join — commission rate unavailable)
+  const catSortOrder =
+    sortParam === "price-asc"  ? [asc(sql`CAST(${schema.products.price} AS DECIMAL(10,2))`)] :
+    sortParam === "price-desc" ? [desc(sql`CAST(${schema.products.price} AS DECIMAL(10,2))`)] :
+    sortParam === "rating"     ? [desc(schema.products.rating)] :
+    sortParam === "value"      ? [desc(schema.products.rating)] : // placeholder: future value-score ranking
+    [desc(schema.products.rating), desc(schema.products.updatedAt)];
 
   // Resolve categorySlug → categoryId for filtering
   let filterCategoryId: number | null = null;
@@ -72,20 +95,22 @@ productsRouter.get("/", async (req, res, next) => {
         or(
           like(schema.products.name, pattern),
           like(schema.products.description, pattern)
-        )
+        ),
+        filterExtras,
       ))
       .orderBy(...sortOrder)
       .limit(limit)
       .offset(offset);
   } else if (filterCategoryId !== null) {
-    // Category filter only — paginated for normal sort, flat fetch for random
+    // Category filter only — uses catSortOrder (no categories join needed)
     const catWhere = and(
       eq(schema.products.categoryId, filterCategoryId),
-      sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
+      sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+      filterExtras,
     );
     productsResult = await db.select().from(schema.products)
       .where(catWhere)
-      .orderBy(sortRandom ? sql`RAND()` : desc(schema.products.rating), sortRandom ? sql`RAND()` : desc(schema.products.updatedAt))
+      .orderBy(...(sortRandom ? [sql`RAND()`] : catSortOrder))
       .limit(limit)
       .offset(sortRandom ? 0 : offset);
   } else if (query) {
@@ -96,7 +121,8 @@ productsRouter.get("/", async (req, res, next) => {
       or(
         like(schema.products.name, pattern),
         like(schema.products.description, pattern)
-      )
+      ),
+      filterExtras,
     );
     productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
@@ -110,7 +136,10 @@ productsRouter.get("/", async (req, res, next) => {
     productsResult = await db.select(getTableColumns(schema.products))
       .from(schema.products)
       .leftJoin(schema.categories, eq(schema.products.categoryId, schema.categories.id))
-      .where(sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`)
+      .where(and(
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        filterExtras,
+      ))
       .orderBy(...sortOrder)
       .limit(limit)
       .offset(offset);
@@ -134,7 +163,7 @@ productsRouter.get("/", async (req, res, next) => {
     features: featuresList.filter(f => f.productId === p.id)
   }));
 
-  // Count: scoped to current filter
+  // Count: scoped to current filter + search
   let totalCount: number;
   if (filterCategoryId !== null && query) {
     const pattern = `%${query}%`;
@@ -143,7 +172,8 @@ productsRouter.get("/", async (req, res, next) => {
       .where(and(
         eq(schema.products.categoryId, filterCategoryId),
         sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
-        or(like(schema.products.name, pattern), like(schema.products.description, pattern))
+        or(like(schema.products.name, pattern), like(schema.products.description, pattern)),
+        filterExtras,
       ));
     totalCount = Number(comboCount);
   } else if (filterCategoryId !== null) {
@@ -151,7 +181,8 @@ productsRouter.get("/", async (req, res, next) => {
       .from(schema.products)
       .where(and(
         eq(schema.products.categoryId, filterCategoryId),
-        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        filterExtras,
       ));
     totalCount = Number(catCount);
   } else if (query) {
@@ -163,13 +194,17 @@ productsRouter.get("/", async (req, res, next) => {
         or(
           like(schema.products.name, pattern),
           like(schema.products.description, pattern)
-        )
+        ),
+        filterExtras,
       ));
     totalCount = Number(searchCount);
   } else {
     const [{ allCount }] = await db.select({ allCount: sql<number>`count(*)` })
       .from(schema.products)
-      .where(sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`);
+      .where(and(
+        sql`CAST(${schema.products.price} AS DECIMAL(10,2)) > 0`,
+        filterExtras,
+      ));
     totalCount = Number(allCount);
   }
 

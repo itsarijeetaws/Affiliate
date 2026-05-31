@@ -4,6 +4,7 @@ import { buildMetadata, generateBreadcrumbSchema, SITE_URL } from "@/lib/seo";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { apiFetch } from "@/lib/api";
 import { ProductCard } from "@/components/ProductCard";
+import { CategoryFilters } from "@/components/CategoryFilters";
 import {
   BookOpen, ArrowRight,
   Zap, Smartphone, Laptop, Headphones, Home, Dumbbell,
@@ -102,11 +103,28 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string; minPrice?: string; maxPrice?: string; minRating?: string }>;
 }) {
   const { slug } = await params;
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, sort = "", minPrice = "", maxPrice = "", minRating = "" } = await searchParams;
   const page = Math.max(1, Number(pageParam ?? 1));
+
+  // Builds a URL preserving all active filter state — used by pagination and filter UI
+  function buildHref(overrides: { page?: number; sort?: string; minPrice?: string; maxPrice?: string; minRating?: string }) {
+    const p = new URLSearchParams();
+    const so = "sort"      in overrides ? overrides.sort      : sort;
+    const mn = "minPrice"  in overrides ? overrides.minPrice  : minPrice;
+    const mx = "maxPrice"  in overrides ? overrides.maxPrice  : maxPrice;
+    const mr = "minRating" in overrides ? overrides.minRating : minRating;
+    const pg = "page"      in overrides ? overrides.page      : page;
+    if (so) p.set("sort", so);
+    if (mn) p.set("minPrice", mn);
+    if (mx) p.set("maxPrice", mx);
+    if (mr) p.set("minRating", mr);
+    if (pg && pg > 1) p.set("page", String(pg));
+    const qs = p.toString();
+    return `/category/${slug}${qs ? `?${qs}` : ""}`;
+  }
 
   let products: Product[] = [];
   let totalProducts = 0;
@@ -114,8 +132,14 @@ export default async function CategoryPage({
   let categoryDesc = "";
 
   try {
+    const qs = new URLSearchParams({ categorySlug: slug, limit: String(PER_PAGE), page: String(page) });
+    if (sort)      qs.set("sort", sort);
+    if (minPrice)  qs.set("minPrice", minPrice);
+    if (maxPrice)  qs.set("maxPrice", maxPrice);
+    if (minRating) qs.set("minRating", minRating);
+
     const data = await apiFetch<{ items: Product[]; pagination: { total: number } }>(
-      `/products?categorySlug=${encodeURIComponent(slug)}&limit=${PER_PAGE}&page=${page}`
+      `/products?${qs.toString()}`
     );
     products = data.items;
     totalProducts = data.pagination?.total ?? products.length;
@@ -247,13 +271,22 @@ export default async function CategoryPage({
         </section>
       )}
 
+      {/* Filters */}
+      <CategoryFilters
+        slug={slug}
+        sort={sort}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        minRating={minRating}
+      />
+
       {/* Product grid */}
       {products.length > 0 ? (
         <section>
           <div className="section-head">
             <h2 className="section-title">All {categoryName} Reviews</h2>
             <span className="text-[12px] text-gray-400 dark:text-white/35">
-              {totalProducts} products · page {page} of {totalPages}
+              {totalProducts} product{totalProducts !== 1 ? "s" : ""} · page {page} of {totalPages}
             </span>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -262,12 +295,12 @@ export default async function CategoryPage({
             ))}
           </div>
 
-          {/* Pagination */}
+          {/* Pagination — uses buildHref to preserve filter state */}
           {totalPages > 1 && (
             <div className="mt-6 flex items-center justify-center gap-2">
               {page > 1 && (
                 <Link
-                  href={`/category/${slug}?page=${page - 1}`}
+                  href={buildHref({ page: page - 1 })}
                   className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-[#16161e] px-4 text-[13px] font-semibold text-gray-700 dark:text-white/70 hover:border-[#FF9900]/40 hover:text-[#FF9900] transition-all"
                 >
                   ← Prev
@@ -275,25 +308,25 @@ export default async function CategoryPage({
               )}
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                  const p = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i;
+                  const pg = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i;
                   return (
                     <Link
-                      key={p}
-                      href={`/category/${slug}?page=${p}`}
+                      key={pg}
+                      href={buildHref({ page: pg })}
                       className={`flex h-9 w-9 items-center justify-center rounded-xl text-[13px] font-semibold transition-all ${
-                        p === page
+                        pg === page
                           ? "bg-[#FF9900] text-black"
                           : "border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-[#16161e] text-gray-600 dark:text-white/60 hover:border-[#FF9900]/40 hover:text-[#FF9900]"
                       }`}
                     >
-                      {p}
+                      {pg}
                     </Link>
                   );
                 })}
               </div>
               {page < totalPages && (
                 <Link
-                  href={`/category/${slug}?page=${page + 1}`}
+                  href={buildHref({ page: page + 1 })}
                   className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-[#16161e] px-4 text-[13px] font-semibold text-gray-700 dark:text-white/70 hover:border-[#FF9900]/40 hover:text-[#FF9900] transition-all"
                 >
                   Next →
