@@ -8,6 +8,11 @@ import { MobileStickyCTA } from "@/components/MobileStickyCTA";
 import { RecentlyViewedTracker } from "@/components/RecentlyViewedTracker";
 import { RecentlyViewed } from "@/components/RecentlyViewed";
 import {
+  normalizeStringList, hasKeyword, computeExpertScore, computeValueScore,
+  getVerdict, getAspectScores, getWhoShouldBuy, getWhoShouldSkip,
+  type VerdictInfo, type AspectScore,
+} from "@/lib/scores";
+import {
   Award, BadgeCheck, ShoppingCart, ListChecks, Check, X,
   TrendingUp, ThumbsUp, Target, Users, AlertCircle, Zap,
   Scale, Star, BarChart2, ChevronRight, BookOpen
@@ -69,28 +74,6 @@ function formatVerifiedDate(raw: string | null | undefined): string {
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-/** Strip junk values like "[]", "{}", empty strings left by bad imports */
-const isJunk = (s: string) => {
-  const t = s.trim();
-  return !t || t === "[]" || t === "{}" || t === "null" || t === "undefined";
-};
-
-const normalizeStringList = (value: unknown): string[] => {
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === "string").filter(s => !isJunk(s));
-  }
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string").filter(s => !isJunk(s));
-      return isJunk(value) ? [] : [value];
-    } catch {
-      return isJunk(value) ? [] : [value];
-    }
-  }
-  return [];
-};
-
 function cleanHtml(html: string): string {
   return html
     .replace(/^```(?:html|markdown|)?\s*\n?/i, "")
@@ -106,155 +89,7 @@ function extractExcerpt(html: string, maxLen = 380): string {
   return cut.slice(0, cut.lastIndexOf(" ")) + "…";
 }
 
-function hasKeyword(text: string, keywords: string[]): boolean {
-  return keywords.some(k => text.includes(k));
-}
-
-// ─── Verdict Engine ──────────────────────────────────────────────────────────
-
-function computeExpertScore(rating: number, pros: string[], cons: string[]): number {
-  const base = rating * 1.7;                                     // 4.6 → 7.82
-  const prosBonus = Math.min(0.8, (pros.length / 5) * 0.8);     // up to +0.8
-  const consPenalty = Math.min(0.6, (cons.length / 4) * 0.6);   // up to -0.6
-  return Math.min(10, Math.max(0, base + prosBonus - consPenalty));
-}
-
-function computeValueScore(price: number, rating: number, altPrices: number[]): number {
-  if (!altPrices.length) return rating * 2;
-  const avgPrice = altPrices.reduce((a, b) => a + b, 0) / altPrices.length;
-  const priceFactor = Math.min(2, avgPrice / Math.max(1, price)); // cheap relative to avg = good
-  return Math.min(10, Math.max(0, (rating / 5) * priceFactor * 6 + 2));
-}
-
-interface VerdictInfo {
-  label: string;
-  tagline: string;
-  color: string;
-  bgColor: string;
-  borderColor: string;
-}
-
-function getVerdict(score: number): VerdictInfo {
-  if (score >= 9.0) return {
-    label: "Editor's Choice",
-    tagline: "An exceptional product that leads its category. Buy with full confidence.",
-    color: "#22c55e", bgColor: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.25)"
-  };
-  if (score >= 8.0) return {
-    label: "Highly Recommended",
-    tagline: "Outstanding performance and value. One of the best choices in this category.",
-    color: "#FF9900", bgColor: "rgba(255,153,0,0.08)", borderColor: "rgba(255,153,0,0.25)"
-  };
-  if (score >= 7.0) return {
-    label: "Recommended",
-    tagline: "A solid, well-rounded product worth buying if it suits your needs.",
-    color: "#3b82f6", bgColor: "rgba(59,130,246,0.08)", borderColor: "rgba(59,130,246,0.25)"
-  };
-  if (score >= 5.5) return {
-    label: "Worth Considering",
-    tagline: "Decent option but check alternatives before committing — there may be better fits.",
-    color: "#8b5cf6", bgColor: "rgba(139,92,246,0.08)", borderColor: "rgba(139,92,246,0.25)"
-  };
-  return {
-    label: "Has Better Alternatives",
-    tagline: "Several competing products offer better performance or value at this price point.",
-    color: "#ef4444", bgColor: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)"
-  };
-}
-
-interface AspectScore { label: string; score: number; icon: string }
-
-function getAspectScores(rating: number, pros: string[], cons: string[]): AspectScore[] {
-  const proText = pros.join(" ").toLowerCase();
-  const conText = cons.join(" ").toLowerCase();
-  const base = rating * 2; // 0–10
-
-  const bump = (hasGood: boolean, hasBad: boolean) =>
-    Math.min(10, Math.max(2, base + (hasGood ? 0.8 : 0) - (hasBad ? 1.2 : 0)));
-
-  return [
-    {
-      label: "Performance",
-      score: bump(
-        hasKeyword(proText, ["fast", "speed", "powerful", "chip", "processor", "smooth", "performance", "quick", "benchmark"]),
-        hasKeyword(conText, ["slow", "lag", "sluggish", "heat", "throttle", "stutter"])
-      ),
-      icon: "⚡"
-    },
-    {
-      label: "Value for Money",
-      score: bump(
-        hasKeyword(proText, ["value", "affordable", "price", "budget", "cheap", "worth"]),
-        hasKeyword(conText, ["expensive", "costly", "price", "overpriced", "premium price"])
-      ),
-      icon: "💰"
-    },
-    {
-      label: "Build & Design",
-      score: bump(
-        hasKeyword(proText, ["build", "premium", "durable", "solid", "aluminum", "metal", "quality", "rugged", "titanium", "sealed"]),
-        hasKeyword(conText, ["plastic", "flimsy", "cheap", "cheap build", "feels cheap"])
-      ),
-      icon: "🔩"
-    },
-    {
-      label: "Battery & Stamina",
-      score: bump(
-        hasKeyword(proText, ["battery", "hour", "charging", "endurance", "stamina", "all-day", "mah", "fast charge"]),
-        hasKeyword(conText, ["battery", "drain", "short battery", "charge often"])
-      ),
-      icon: "🔋"
-    },
-    {
-      label: "Features",
-      score: bump(
-        pros.length >= 5,
-        hasKeyword(conText, ["limited", "missing", "lacks", "no nfc", "no wireless", "no usb"])
-      ),
-      icon: "✨"
-    }
-  ];
-}
-
-function getWhoShouldBuy(pros: string[], cons: string[], price: number): string[] {
-  const pt = pros.join(" ").toLowerCase();
-  const ct = cons.join(" ").toLowerCase();
-  const segments: string[] = [];
-
-  if (price < 3000) segments.push("Budget-conscious buyers");
-  if (price >= 50000) segments.push("Premium segment buyers");
-  if (hasKeyword(pt, ["battery", "hour", "stamina", "all-day"])) segments.push("Heavy daily users");
-  if (hasKeyword(pt, ["portable", "compact", "lightweight", "slim", "travel"])) segments.push("Frequent travelers");
-  if (hasKeyword(pt, ["noise cancell", "anc", "quiet", "office"])) segments.push("Office workers & commuters");
-  if (hasKeyword(pt, ["gaming", "fps", "esport", "low latency"])) segments.push("Gamers");
-  if (hasKeyword(pt, ["camera", "photo", "photography", "sensor", "zoom", "lens"])) segments.push("Photography enthusiasts");
-  if (hasKeyword(pt, ["waterproof", "ip67", "ip68", "water resist", "splash", "rugged"])) segments.push("Outdoor adventurers");
-  if (hasKeyword(pt, ["ai", "assistant", "smart home", "alexa", "google"])) segments.push("Smart home users");
-  if (hasKeyword(pt, ["student", "college", "productivity", "office", "work"])) segments.push("Students & professionals");
-  if (hasKeyword(pt, ["display", "amoled", "oled", "screen", "bright"])) segments.push("Media & streaming lovers");
-  if (hasKeyword(pt, ["5g", "fast network", "speed"])) segments.push("Power network users");
-
-  // Always have at least 2 entries
-  if (segments.length === 0) segments.push("General purpose users", "Value seekers");
-  return segments.slice(0, 4);
-}
-
-function getWhoShouldSkip(cons: string[], price: number): string[] {
-  const ct = cons.join(" ").toLowerCase();
-  const segments: string[] = [];
-
-  if (hasKeyword(ct, ["expensive", "costly", "price"]) || price > 20000) segments.push("Budget shoppers");
-  if (hasKeyword(ct, ["requires iphone", "android only", "ios only", "requires android"])) segments.push("Users outside the ecosystem");
-  if (hasKeyword(ct, ["heavy", "bulky", "large", "big"])) segments.push("Minimalist carry users");
-  if (hasKeyword(ct, ["subscription", "require subscription", "paid"])) segments.push("Users avoiding recurring costs");
-  if (hasKeyword(ct, ["learning curve", "complex", "complicated"])) segments.push("Non-tech-savvy users");
-  if (hasKeyword(ct, ["battery", "drain", "1-day", "short battery"])) segments.push("Users needing multi-day battery");
-  if (hasKeyword(ct, ["no headphone", "no 3.5", "no usb-a", "limited port"])) segments.push("Users needing legacy ports");
-  if (hasKeyword(ct, ["ads", "bloatware", "software"])) segments.push("Pure software experience seekers");
-
-  if (segments.length === 0) segments.push("Those with very specific requirements");
-  return segments.slice(0, 3);
-}
+// ─── Verdict Engine — functions imported from @/lib/scores ───────────────────
 
 function getRatingDistribution(rating: number): { star: number; pct: number }[] {
   const r = Math.min(5, Math.max(1, Number(rating)));
@@ -1017,12 +852,20 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        <Link
-                          href={`/product/${alt.slug}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-white/50 hover:border-[#FF9900]/30 hover:text-[#FF9900] transition-all"
-                        >
-                          View <ChevronRight className="h-3 w-3" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/product/${alt.slug}`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-white/50 hover:border-[#FF9900]/30 hover:text-[#FF9900] transition-all"
+                          >
+                            View <ChevronRight className="h-3 w-3" />
+                          </Link>
+                          <Link
+                            href={`/compare/${product.slug}-vs-${alt.slug}`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/[0.07] px-2.5 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/[0.14] transition-all"
+                          >
+                            vs
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
