@@ -4,6 +4,7 @@ import { HeroBanner } from "@/components/HeroBanner";
 import { CategoryCarousel } from "@/components/CategoryCarousel";
 import { BountyBanner } from "@/components/BountyBanner";
 import { SubscribeSection } from "@/app/components/SubscribeSection";
+import { RecentlyViewed } from "@/components/RecentlyViewed";
 import { buildMetadata } from "@/lib/seo";
 import { apiFetch } from "@/lib/api";
 import {
@@ -212,6 +213,9 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ── Recently Viewed (client-only, empty on SSR) ── */}
+      <RecentlyViewed />
 
       {/* ── Amazon Services / Bounty ── */}
       <BountyBanner />

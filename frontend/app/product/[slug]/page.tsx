@@ -4,6 +4,9 @@ import { buildMetadata, generateBreadcrumbSchema, generateFAQSchema, SITE_URL } 
 import { apiFetch } from "@/lib/api";
 import { ImageGallery } from "@/components/ImageGallery";
 import { ShareButtons } from "@/components/ShareButtons";
+import { MobileStickyCTA } from "@/components/MobileStickyCTA";
+import { RecentlyViewedTracker } from "@/components/RecentlyViewedTracker";
+import { RecentlyViewed } from "@/components/RecentlyViewed";
 import {
   Award, BadgeCheck, ShoppingCart, ListChecks, Check, X,
   TrendingUp, ThumbsUp, Target, Users, AlertCircle, Zap,
@@ -465,6 +468,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const faqSchema = generateFAQSchema(faqs);
 
   return (
+    <>
+    <RecentlyViewedTracker
+      slug={product.slug}
+      name={product.name}
+      price={p}
+      imageUrl={product.imageUrl}
+      amazonAsin={product.amazonAsin}
+      rating={r}
+    />
     <article className="mx-auto max-w-5xl space-y-6">
       <SeoJsonLd data={productSchema} />
       <SeoJsonLd data={breadcrumbSchema} />
@@ -559,7 +571,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               )}
             </div>
 
-            <div className="space-y-3">
+            <div id="hero-cta" className="space-y-3">
               {/* Score pill + Buy button inline */}
               <div className="flex flex-wrap items-center gap-3">
                 <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold"
@@ -1140,8 +1152,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </section>
       )}
 
+      {/* ── Recently Viewed ── */}
+      <RecentlyViewed currentSlug={product.slug} />
+
       {/* ── Bottom CTA ── */}
-      <div className="rounded-xl border border-[#FF9900]/15 bg-[#FF9900]/[0.04] p-7 text-center">
+      <div id="bottom-cta" className="rounded-xl border border-[#FF9900]/15 bg-[#FF9900]/[0.04] p-7 text-center">
         <div className="mb-2 inline-flex items-center justify-center gap-2 rounded-full border border-[#FF9900]/20 bg-[#FF9900]/10 px-4 py-1.5 text-[12px] font-bold text-[#FF9900]">
           <TrendingUp className="h-3.5 w-3.5" strokeWidth={2.5} />
           Expert Score: {expertScore.toFixed(1)}/10 — {verdict.label}
@@ -1161,5 +1176,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </div>
 
     </article>
+    <MobileStickyCTA
+      name={product.name}
+      price={p}
+      affiliateUrl={product.affiliateUrl}
+    />
+    </>
   );
 }
